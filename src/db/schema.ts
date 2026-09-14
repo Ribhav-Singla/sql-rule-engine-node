@@ -129,6 +129,8 @@ export const sessionQuestions = pgTable(
     timerEnabled: boolean("timer_enabled").notNull().default(false),
     timeLimitSeconds: integer("time_limit_seconds"),
     status: text("status").notNull().default("pending"),
+    startedAt: timestamp("started_at"),
+    deadlineAt: timestamp("deadline_at"),
     usedAt: timestamp("used_at"),
   },
   (table) => [

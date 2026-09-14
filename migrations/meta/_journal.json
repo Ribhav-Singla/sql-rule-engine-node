@@ -43,6 +43,13 @@
       "when": 1788286053477,
       "tag": "0005_gray_wolfpack",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788975894929,
+      "tag": "0006_first_mandarin",
+      "breakpoints": true
     }
   ]
 }

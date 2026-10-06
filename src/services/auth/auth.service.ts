@@ -1,7 +1,5 @@
 import bcrypt from "bcrypt";
-import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { users, authSessions } from "../../db/schema.js";
 import { createAccessToken, createRefreshToken, verifyRefreshToken } from "../../utils/jwt.utils.js";
 import { AppError } from "../../utils/app-error.utils.js";
 
@@ -32,28 +30,23 @@ const toPublicUser = (user: UserRow): PublicUser => ({
 async function issueSession(user: UserRow) {
   const accessToken = createAccessToken(user.id);
   const refreshToken = createRefreshToken(user.id);
-  await db.insert(authSessions).values({ userId: user.id, refreshToken });
+  await db.authSession.create({ data: { userId: user.id, refreshToken } });
   return { user: toPublicUser(user), accessToken, refreshToken };
 }
 
 export const registerUser = async (email: string, password: string) => {
-  const existing = (await db.select().from(users).where(eq(users.email, email)).limit(1))[0];
+  const existing = await db.user.findUnique({ where: { email } });
   if (existing) {
     throw new AppError("User already exists", 409, "USER_EXISTS");
   }
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-  const [user] = await db.insert(users).values({ email, passwordHash }).returning();
-  if (!user) {
-    throw new AppError("Failed to create user", 500);
-  }
+  const user = await db.user.create({ data: { email, passwordHash } });
   return issueSession(user as UserRow);
 };
 
 export const loginUser = async (email: string, password: string) => {
-  const user = (await db.select().from(users).where(eq(users.email, email)).limit(1))[0] as
-    | UserRow
-    | undefined;
+  const user = await db.user.findUnique({ where: { email } });
   if (!user || user.deletedAt) {
     throw new AppError("Invalid credentials", 401);
   }
@@ -76,30 +69,26 @@ export const rotateSession = async (oldRefreshToken: string) => {
     throw new AppError("Unauthorized", 401, "UNAUTHENTICATED");
   }
 
-  const session = (
-    await db.select().from(authSessions).where(eq(authSessions.refreshToken, oldRefreshToken)).limit(1)
-  )[0];
+  const session = await db.authSession.findUnique({ where: { refreshToken: oldRefreshToken } });
 
   if (!session) {
-    await db.delete(authSessions).where(eq(authSessions.userId, payload.userId));
+    await db.authSession.deleteMany({ where: { userId: payload.userId } });
     throw new AppError("Unauthorized", 401, "UNAUTHENTICATED");
   }
 
   const accessToken = createAccessToken(payload.userId);
   const refreshToken = createRefreshToken(payload.userId);
-  await db.update(authSessions).set({ refreshToken }).where(eq(authSessions.id, session.id));
+  await db.authSession.update({ where: { id: session.id }, data: { refreshToken } });
   return { accessToken, refreshToken };
 };
 
 // Invalidates a single refresh token (this device/session only). Idempotent.
 export const logoutSession = async (refreshToken: string) => {
-  await db.delete(authSessions).where(eq(authSessions.refreshToken, refreshToken));
+  await db.authSession.deleteMany({ where: { refreshToken } });
 };
 
 export const getUserById = async (userId: string): Promise<PublicUser> => {
-  const user = (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0] as
-    | UserRow
-    | undefined;
+  const user = await db.user.findUnique({ where: { id: userId } });
   if (!user || user.deletedAt) {
     throw new AppError("User not found", 404);
   }

@@ -1,8 +1,6 @@
 import "@dotenvx/dotenvx/config";
 import express, { Request, Response } from "express";
 import cors from "cors";
-import helmet from "helmet";
-import morgan from "morgan";
 import cookieParser from "cookie-parser";
 
 import { apiRouter } from "./routes/api.js";
@@ -16,9 +14,6 @@ export function createApp() {
   const app = express();
 
   // Middleware Setup
-  app.use(helmet());
-  app.use(morgan("dev"));
-
   // CORS Configuration — credentials enabled so the httpOnly refresh cookie flows.
   app.use(
     cors({

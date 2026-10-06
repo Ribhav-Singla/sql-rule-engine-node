@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String             @id @default(uuid()) @db.Uuid
+  email            String             @unique(map: "users_email_idx")
+  passwordHash     String             @map("password_hash")
+  role             String             @default("user")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  deletedAt        DateTime?          @map("deleted_at")
+  authSessions     AuthSession[]
+  interviewSessions InterviewSession[]
+  attempts         Attempt[]
+
+  @@map("users")
+}
+
+model AuthSession {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid @map("user_id")
+  refreshToken String   @unique(map: "auth_sessions_refresh_token_idx") @map("refresh_token")
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_sessions")
+}
+
+model Problem {
+  id               String             @id @default(uuid()) @db.Uuid
+  title            String
+  questionText     String             @map("question_text")
+  difficulty       String
+  isFree           Boolean            @default(false) @map("is_free")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  solutions        ProblemSolution[]
+  expectedResults  ExpectedResult[]
+  sessionQuestions SessionQuestion[]
+
+  @@map("problems")
+}
+
+model ProblemSolution {
+  id                   String   @id @default(uuid()) @db.Uuid
+  problemId            String   @db.Uuid @map("problem_id")
+  referenceSolutionQuery String  @map("reference_solution_query")
+  createdAt            DateTime @default(now()) @map("created_at")
+  problem              Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@map("problem_solutions")
+}
+
+model ExpectedResult {
+  id                 String   @id @default(uuid()) @db.Uuid
+  problemId          String   @db.Uuid @map("problem_id")
+  solutionId         String?  @db.Uuid @map("solution_id")
+  rows               Json?
+  rowsHash           String   @map("rows_hash")
+  ruleVersionSnapshot Int?    @map("rule_version_snapshot")
+  isActive           Boolean  @default(true) @map("is_active")
+  generatedAt        DateTime @default(now()) @map("generated_at")
+  problem            Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@map("expected_results")
+}
+
+model InterviewSession {
+  id                  String            @id @default(uuid()) @db.Uuid
+  userId              String            @db.Uuid @map("user_id")
+  mode                String            @default("interview")
+  status              String            @default("active")
+  startedAt           DateTime          @default(now()) @map("started_at")
+  endedAt             DateTime?         @map("ended_at")
+  readinessCheckPassed Boolean          @default(false) @map("readiness_check_passed")
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questions           SessionQuestion[]
+
+  @@map("interview_sessions")
+}
+
+model SessionQuestion {
+  id               String          @id @default(uuid()) @db.Uuid
+  sessionId        String          @db.Uuid @map("session_id")
+  problemId        String          @db.Uuid @map("problem_id")
+  orderIndex       Int             @map("order_index")
+  timerEnabled     Boolean         @default(false) @map("timer_enabled")
+  timeLimitSeconds Int?            @map("time_limit_seconds")
+  status           String          @default("pending")
+  startedAt        DateTime?       @map("started_at")
+  deadlineAt       DateTime?       @map("deadline_at")
+  usedAt           DateTime?       @map("used_at")
+  session          InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  problem          Problem         @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  attempts         Attempt[]
+  attemptRuns      AttemptRun[]
+
+  @@map("session_questions")
+}
+
+model Attempt {
+  id               String          @id @default(uuid()) @db.Uuid
+  sessionQuestionId String         @db.Uuid @map("session_question_id")
+  userId           String          @db.Uuid @map("user_id")
+  finalQuery       String?         @map("final_query")
+  status           String          @default("pending")
+  score            Int?
+  submittedAt      DateTime        @default(now()) @map("submitted_at")
+  sessionQuestion  SessionQuestion @relation(fields: [sessionQuestionId], references: [id], onDelete: Cascade)
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  runs             AttemptRun[]
+
+  @@map("attempts")
+}
+
+model AttemptRun {
+  id               String          @id @default(uuid()) @db.Uuid
+  attemptId        String?         @db.Uuid @map("attempt_id")
+  sessionQuestionId String         @db.Uuid @map("session_question_id")
+  queryText        String          @map("query_text")
+  queryHash        String          @map("query_hash")
+  output           Json?
+  errorText        String?         @map("error_text")
+  runtimeMs        Int?            @map("runtime_ms")
+  ruleVersionUsed  Int?            @map("rule_version_used")
+  ranAt            DateTime        @default(now()) @map("ran_at")
+  attempt          Attempt?        @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  sessionQuestion  SessionQuestion @relation(fields: [sessionQuestionId], references: [id], onDelete: Cascade)
+
+  @@map("attempt_runs")
+}

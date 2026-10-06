@@ -1,6 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { interviewSessions, problems, sessionQuestions } from "../../db/schema.js";
 import { AppError } from "../../utils/app-error.utils.js";
 
 export interface StartInterviewInput {
@@ -13,54 +11,51 @@ export interface StartInterviewInput {
   }>;
 }
 
-const questionSelection = {
-  id: sessionQuestions.id,
-  sessionId: sessionQuestions.sessionId,
-  problemId: problems.id,
-  title: problems.title,
-  questionText: problems.questionText,
-  difficulty: problems.difficulty,
-  orderIndex: sessionQuestions.orderIndex,
-  timerEnabled: sessionQuestions.timerEnabled,
-  timeLimitSeconds: sessionQuestions.timeLimitSeconds,
-  status: sessionQuestions.status,
-  startedAt: sessionQuestions.startedAt,
-  deadlineAt: sessionQuestions.deadlineAt,
-};
+type TransactionClient = Parameters<Parameters<typeof db.$transaction>[0]>[0];
 
-async function activateNextQuestion(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], sessionId: string) {
-  const [next] = await tx
-    .select({ id: sessionQuestions.id })
-    .from(sessionQuestions)
-    .where(and(eq(sessionQuestions.sessionId, sessionId), eq(sessionQuestions.status, "pending")))
-    .orderBy(asc(sessionQuestions.orderIndex))
-    .limit(1);
+async function activateNextQuestion(tx: TransactionClient, sessionId: string) {
+  const next = await tx.sessionQuestion.findFirst({
+    where: { sessionId, status: "pending" },
+    orderBy: { orderIndex: "asc" },
+  });
 
   if (!next) {
-    await tx
-      .update(interviewSessions)
-      .set({ status: "completed", endedAt: new Date() })
-      .where(eq(interviewSessions.id, sessionId));
+    await tx.interviewSession.update({
+      where: { id: sessionId },
+      data: { status: "completed", endedAt: new Date() },
+    });
     return null;
   }
 
   const startedAt = new Date();
-  const [selected] = await tx
-    .select(questionSelection)
-    .from(sessionQuestions)
-    .innerJoin(problems, eq(problems.id, sessionQuestions.problemId))
-    .where(eq(sessionQuestions.id, next.id))
-    .limit(1);
+  const selected = await tx.sessionQuestion.findUnique({
+    where: { id: next.id },
+    include: { problem: true },
+  });
   const deadlineAt = selected?.timerEnabled && selected.timeLimitSeconds
     ? new Date(startedAt.getTime() + selected.timeLimitSeconds * 1000)
     : null;
 
-  await tx
-    .update(sessionQuestions)
-    .set({ status: "active", startedAt, deadlineAt })
-    .where(eq(sessionQuestions.id, next.id));
+  await tx.sessionQuestion.update({
+    where: { id: next.id },
+    data: { status: "active", startedAt, deadlineAt },
+  });
 
-  return { ...selected, status: "active", startedAt, deadlineAt };
+  if (!selected) return null;
+  return {
+    id: selected.id,
+    sessionId: selected.sessionId,
+    problemId: selected.problemId,
+    title: selected.problem.title,
+    questionText: selected.problem.questionText,
+    difficulty: selected.problem.difficulty,
+    orderIndex: selected.orderIndex,
+    timerEnabled: selected.timerEnabled,
+    timeLimitSeconds: selected.timeLimitSeconds,
+    status: "active",
+    startedAt,
+    deadlineAt,
+  };
 }
 
 export async function startInterview(userId: string, input: StartInterviewInput) {
@@ -68,25 +63,22 @@ export async function startInterview(userId: string, input: StartInterviewInput)
     throw new AppError("At least one interview question is required", 400, "QUESTIONS_REQUIRED");
   }
 
-  return db.transaction(async (tx) => {
-    const [session] = await tx
-      .insert(interviewSessions)
-      .values({
+  return db.$transaction(async (tx) => {
+    const session = await tx.interviewSession.create({
+      data: {
         userId,
         mode: input.mode ?? "interview",
         readinessCheckPassed: input.readinessCheckPassed ?? false,
-      })
-      .returning();
-
-    await tx.insert(sessionQuestions).values(
-      input.questions.map((question, orderIndex) => ({
-        sessionId: session.id,
-        problemId: question.problemId,
-        orderIndex,
-        timerEnabled: question.timerEnabled ?? false,
-        timeLimitSeconds: question.timerEnabled ? question.timeLimitSeconds ?? null : null,
-      })),
-    );
+        questions: {
+          create: input.questions.map((question, orderIndex) => ({
+            problemId: question.problemId,
+            orderIndex,
+            timerEnabled: question.timerEnabled ?? false,
+            timeLimitSeconds: question.timerEnabled ? question.timeLimitSeconds ?? null : null,
+          })),
+        },
+      },
+    });
 
     const currentQuestion = await activateNextQuestion(tx, session.id);
     return { session, currentQuestion };
@@ -94,48 +86,47 @@ export async function startInterview(userId: string, input: StartInterviewInput)
 }
 
 export async function getCurrentQuestion(sessionId: string, userId: string) {
-  return db.transaction(async (tx) => {
-    const [session] = await tx
-      .select()
-      .from(interviewSessions)
-      .where(and(eq(interviewSessions.id, sessionId), eq(interviewSessions.userId, userId)))
-      .limit(1);
-
+  return db.$transaction(async (tx) => {
+    const session = await tx.interviewSession.findFirst({ where: { id: sessionId, userId } });
     if (!session) throw new AppError("Interview session not found", 404, "SESSION_NOT_FOUND");
 
-    const [active] = await tx
-      .select(questionSelection)
-      .from(sessionQuestions)
-      .innerJoin(problems, eq(problems.id, sessionQuestions.problemId))
-      .where(and(eq(sessionQuestions.sessionId, sessionId), eq(sessionQuestions.status, "active")))
-      .limit(1);
+    const active = await tx.sessionQuestion.findFirst({
+      where: { sessionId, status: "active" },
+      include: { problem: true },
+    });
 
     if (active?.deadlineAt && active.deadlineAt <= new Date()) {
-      await tx
-        .update(sessionQuestions)
-        .set({ status: "timed_out" })
-        .where(eq(sessionQuestions.id, active.id));
+      await tx.sessionQuestion.update({ where: { id: active.id }, data: { status: "timed_out" } });
       return { session, currentQuestion: null, timedOutQuestionId: active.id };
     }
 
-    return { session, currentQuestion: active ?? (await activateNextQuestion(tx, sessionId)) };
+    if (!active) return { session, currentQuestion: await activateNextQuestion(tx, sessionId) };
+    return { session, currentQuestion: {
+      id: active.id,
+      sessionId: active.sessionId,
+      problemId: active.problemId,
+      title: active.problem.title,
+      questionText: active.problem.questionText,
+      difficulty: active.problem.difficulty,
+      orderIndex: active.orderIndex,
+      timerEnabled: active.timerEnabled,
+      timeLimitSeconds: active.timeLimitSeconds,
+      status: active.status,
+      startedAt: active.startedAt,
+      deadlineAt: active.deadlineAt,
+    } };
   });
 }
 
 export async function advanceInterview(sessionId: string, userId: string) {
-  return db.transaction(async (tx) => {
-    const [session] = await tx
-      .select()
-      .from(interviewSessions)
-      .where(and(eq(interviewSessions.id, sessionId), eq(interviewSessions.userId, userId)))
-      .limit(1);
-
+  return db.$transaction(async (tx) => {
+    const session = await tx.interviewSession.findFirst({ where: { id: sessionId, userId } });
     if (!session) throw new AppError("Interview session not found", 404, "SESSION_NOT_FOUND");
 
-    await tx
-      .update(sessionQuestions)
-      .set({ status: "completed", usedAt: new Date() })
-      .where(and(eq(sessionQuestions.sessionId, sessionId), eq(sessionQuestions.status, "active")));
+    await tx.sessionQuestion.updateMany({
+      where: { sessionId, status: "active" },
+      data: { status: "completed", usedAt: new Date() },
+    });
 
     const currentQuestion = await activateNextQuestion(tx, sessionId);
     return { sessionId, currentQuestion };

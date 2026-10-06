@@ -1,7 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { eq, like } from "drizzle-orm";
 import { db, pool } from "../../db/index.js";
-import { users, authSessions } from "../../db/schema.js";
 import { registerUser, loginUser, rotateSession, logoutSession, getUserById } from "./auth.service.js";
 import { AppError } from "../../utils/app-error.utils.js";
 
@@ -16,7 +14,7 @@ const uniqueEmail = () => `${TEST_PREFIX}${Date.now()}-${counter++}@example.com`
 
 afterAll(async () => {
   // Cascades to auth_sessions via the FK.
-  await db.delete(users).where(like(users.email, `${TEST_PREFIX}%`));
+  await db.user.deleteMany({ where: { email: { startsWith: TEST_PREFIX } } });
   await pool.end();
 });
 
@@ -41,7 +39,7 @@ describe("registerUser", () => {
     expect(result.accessToken).toBeTruthy();
     expect(result.refreshToken).toBeTruthy();
 
-    const sessions = await db.select().from(authSessions).where(eq(authSessions.userId, result.user.id));
+    const sessions = await db.authSession.findMany({ where: { userId: result.user.id } });
     expect(sessions).toHaveLength(1);
     expect(sessions[0].refreshToken).toBe(result.refreshToken);
   });
@@ -80,7 +78,7 @@ describe("rotateSession", () => {
 
     expect(rotated.refreshToken).not.toBe(oldToken);
 
-    const sessions = await db.select().from(authSessions).where(eq(authSessions.userId, user.id));
+    const sessions = await db.authSession.findMany({ where: { userId: user.id } });
     expect(sessions).toHaveLength(1);
     expect(sessions[0].refreshToken).toBe(rotated.refreshToken);
   });
@@ -91,7 +89,7 @@ describe("rotateSession", () => {
 
     await expectAppError(rotateSession(oldToken), 401); // reuse of old
 
-    const sessions = await db.select().from(authSessions).where(eq(authSessions.userId, user.id));
+    const sessions = await db.authSession.findMany({ where: { userId: user.id } });
     expect(sessions).toHaveLength(0);
   });
 
@@ -104,7 +102,7 @@ describe("logoutSession", () => {
   it("deletes the session row for the given refresh token", async () => {
     const { refreshToken, user } = await registerUser(uniqueEmail(), "password123");
     await logoutSession(refreshToken);
-    const sessions = await db.select().from(authSessions).where(eq(authSessions.userId, user.id));
+    const sessions = await db.authSession.findMany({ where: { userId: user.id } });
     expect(sessions).toHaveLength(0);
   });
 });

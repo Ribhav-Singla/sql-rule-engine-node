@@ -1,1 +1,0 @@
-ALTER TABLE "expected_results" ADD CONSTRAINT "expected_results_problem_id_problems_problem_id_fk" FOREIGN KEY ("problem_id") REFERENCES "public"."problems"("problem_id") ON DELETE cascade ON UPDATE no action;

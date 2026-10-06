@@ -1,9 +1,8 @@
 import { getMockedComparisonResult } from "./mock-comparison.js";
+import type { Prisma } from "@prisma/client";
 import { generateSqlFeedback } from "../feedback/feedback-generator.js";
 import type { CombinedDebriefResponse } from "../../types/api.js";
 import { db } from "../../db/index.js";
-import { attemptRuns, attempts, interviewSessions, sessionQuestions } from "../../db/schema.js";
-import { and, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { evaluateSqlFollowup } from "../evaluator/sql-followup-evaluator.js";
 import { normalizeSql } from "../normalization/query-normalizer.js";
@@ -17,18 +16,9 @@ export async function submitSessionQuestion(
   edgeCaseText: string
 ): Promise<{ success: boolean; data?: CombinedDebriefResponse; error?: string; errorCode?: string; statusCode?: number }> {
   
-  const [sessionRecord] = await db
-    .select({ question: sessionQuestions, sessionUserId: interviewSessions.userId })
-    .from(sessionQuestions)
-    .innerJoin(interviewSessions, eq(interviewSessions.id, sessionQuestions.sessionId))
-    .where(
-      and(
-        eq(sessionQuestions.id, sessionQuestionId),
-        eq(interviewSessions.userId, userId),
-        eq(sessionQuestions.status, "active"),
-      ),
-    )
-    .limit(1);
+  const sessionRecord = await db.sessionQuestion.findFirst({
+    where: { id: sessionQuestionId, status: "active", session: { userId } },
+  });
 
   if (!sessionRecord) {
     return {
@@ -39,10 +29,10 @@ export async function submitSessionQuestion(
     };
   }
 
-  const question = sessionRecord.question;
+  const question = sessionRecord;
   if (question.status === "timed_out" || (question.deadlineAt && question.deadlineAt <= new Date())) {
     if (question.status !== "timed_out") {
-      await db.update(sessionQuestions).set({ status: "timed_out" }).where(eq(sessionQuestions.id, sessionQuestionId));
+      await db.sessionQuestion.update({ where: { id: sessionQuestionId }, data: { status: "timed_out" } });
     }
     return {
       success: false,
@@ -53,9 +43,7 @@ export async function submitSessionQuestion(
   }
 
   // 3. Check if already submitted
-  const existingAttempt = await db.query.attempts.findFirst({
-    where: eq(attempts.sessionQuestionId, sessionQuestionId)
-  });
+  const existingAttempt = await db.attempt.findFirst({ where: { sessionQuestionId } });
 
   if (existingAttempt) {
     return {
@@ -79,34 +67,34 @@ export async function submitSessionQuestion(
       edgeCaseText
     });
 
-    // 6. Save to DB using Drizzle
+    // 6. Save to DB
     const attemptId = randomUUID();
     const normalizedFinalQuery = normalizeSql(finalQuery).normalized_sql ?? finalQuery;
-    await db.transaction(async (tx) => {
-      await tx.insert(attempts).values({
+    await db.$transaction(async (tx) => {
+      await tx.attempt.create({ data: {
         id: attemptId,
         sessionQuestionId,
         userId,
         finalQuery,
         status: "completed",
         score: feedbackData.score,
-      });
+      } });
 
-      await tx.insert(attemptRuns).values({
+      await tx.attemptRun.create({ data: {
         attemptId,
         sessionQuestionId,
         queryText: normalizedFinalQuery,
         queryHash: generateSha256Hash(normalizedFinalQuery),
-        output: feedbackData,
+        output: feedbackData as unknown as Prisma.InputJsonValue,
         errorText: null,
         runtimeMs: 0,
-      });
+      } });
     });
 
-    await db
-      .update(sessionQuestions)
-      .set({ status: "completed", usedAt: new Date() })
-      .where(eq(sessionQuestions.id, sessionQuestionId));
+    await db.sessionQuestion.update({
+      where: { id: sessionQuestionId },
+      data: { status: "completed", usedAt: new Date() },
+    });
 
     const explanationEvaluation = await evaluateSqlFollowup({
       questionId: question.problemId,

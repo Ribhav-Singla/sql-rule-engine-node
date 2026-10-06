@@ -12,7 +12,7 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": [
-    "./src/**/*.ts",
+    "./src/**/*.ts", "src/seedDb/seed.ts",
   ],
   "exclude": [
     "node_modules",

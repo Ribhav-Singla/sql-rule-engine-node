@@ -6,8 +6,8 @@ import {
   logoutSession,
   getUserById,
 } from "../services/auth/auth.service.js";
-import { ApiSuccess } from "../utils/api-response.utils.js";
-import { AppError } from "../utils/app-error.utils.js";
+import { ApiSuccess } from "../utils/api_response.js";
+import { AppError } from "../utils/app_error.js";
 import { settings } from "../config/settings.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 

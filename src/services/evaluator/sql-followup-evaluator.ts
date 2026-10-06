@@ -2,7 +2,7 @@ import type {
   EvaluateSqlFollowupInput,
   ExplanationEvaluation,
   ReadinessLabel,
-} from "../../types/api.js";
+} from "../../types/index.js";
 
 /**
  * Mock Rule-Based Evaluator for SQL Explanations

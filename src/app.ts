@@ -8,7 +8,7 @@ import { authRouter } from "./routes/auth.js";
 import { problemsRouter } from "./routes/problems.js";
 import { authMiddleware } from "./middlewares/auth.middleware.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
-import { ApiSuccess, ApiError } from "./utils/api-response.utils.js";
+import { ApiSuccess, ApiError } from "./utils/api_response.js";
 
 export function createApp() {
   const app = express();

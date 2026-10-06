@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { db, pool } from "../../db/index.js";
 import { registerUser, loginUser, rotateSession, logoutSession, getUserById } from "./auth.service.js";
-import { AppError } from "../../utils/app-error.utils.js";
+import { AppError } from "../../utils/app_error.js";
 
 /**
  * Integration tests for the auth service. Requires the local Postgres with the

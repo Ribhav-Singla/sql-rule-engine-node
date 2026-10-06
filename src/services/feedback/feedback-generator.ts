@@ -31,7 +31,7 @@ export function generateFeedback({ isCorrect, ruleIssues }: FeedbackInput) {
   };
 }
 
-import type { ComparisonResult, ApprovedRuleCode, ReadinessLabel, DebriefResponse } from "../../types/api.js";
+import type { ComparisonResult, ApprovedRuleCode, ReadinessLabel, DebriefResponse } from "../../types/index.js";
 
 export function generateSqlFeedback(input: {
   finalQuery: string;

@@ -1,7 +1,7 @@
 import { getMockedComparisonResult } from "./mock-comparison.js";
 import type { Prisma } from "@prisma/client";
 import { generateSqlFeedback } from "../feedback/feedback-generator.js";
-import type { CombinedDebriefResponse } from "../../types/api.js";
+import type { CombinedDebriefResponse } from "../../types/index.js";
 import { db } from "../../db/index.js";
 import { randomUUID } from "crypto";
 import { evaluateSqlFollowup } from "../evaluator/sql-followup-evaluator.js";

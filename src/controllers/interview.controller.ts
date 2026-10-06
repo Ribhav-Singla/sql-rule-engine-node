@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
-import { ApiError, ApiSuccess } from "../utils/api-response.utils.js";
+import { ApiError, ApiSuccess } from "../utils/api_response.js";
 import { advanceInterview, getCurrentQuestion, startInterview } from "../services/interview/session-service.js";
-import { AppError } from "../utils/app-error.utils.js";
+import { AppError } from "../utils/app_error.js";
 
 export const interviewRouter = Router();
 

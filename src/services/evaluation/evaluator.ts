@@ -1,4 +1,4 @@
-import type { EvaluateResponse, SchemaName } from "../../types/api.js";
+import type { EvaluateResponse, SchemaName } from "../../types/index.js";
 import { normalizeSql } from "../normalization/query-normalizer.js";
 import { generateFingerprint } from "../utils/fingerprint.js";
 import { getCache, setCache } from "../cache/redis-cache.js";

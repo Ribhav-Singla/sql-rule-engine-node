@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import jwt from "jsonwebtoken";
-import { AppError } from "../utils/app-error.utils.js";
-import { ApiError } from "../utils/api-response.utils.js";
+import { AppError } from "../utils/app_error.js";
+import { ApiError } from "../utils/api_response.js";
 
 function formatZodError(err: ZodError): string {
   return err.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join(", ");

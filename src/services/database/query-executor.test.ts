@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { executeQuery } from "./query-executor.js";
 import { pool, sandboxPool } from "../../db/index.js";
-import type { SchemaName } from "../../types/api.js";
+import type { SchemaName } from "../../types/index.js";
 
 /**
  * Integration tests for the sandboxed SQL execution engine.

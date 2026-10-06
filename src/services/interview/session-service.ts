@@ -1,5 +1,5 @@
 import { db } from "../../db/index.js";
-import { AppError } from "../../utils/app-error.utils.js";
+import { AppError } from "../../utils/app_error.js";
 
 export interface StartInterviewInput {
   mode?: string;

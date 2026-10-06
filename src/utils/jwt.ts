@@ -1,10 +1,7 @@
 import { randomUUID } from "node:crypto";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { settings } from "../config/settings.js";
-
-export interface AccessTokenPayload {
-  userId: string;
-}
+import { AccessTokenPayload } from "../types/index.js";
 
 export const createAccessToken = (userId: string): string =>
   jwt.sign({ userId }, settings.JWT_SECRET, {

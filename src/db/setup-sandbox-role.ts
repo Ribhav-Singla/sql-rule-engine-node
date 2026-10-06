@@ -1,6 +1,6 @@
 import "@dotenvx/dotenvx/config";
 import { Pool } from "pg";
-import { SCHEMA_NAMES } from "../types/api.js";
+import { SCHEMA_NAMES } from "../types/index.js";
 
 /**
  * Idempotently provisions the least-privilege PostgreSQL role that the API uses

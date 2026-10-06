@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
-import { AppError } from "../utils/app-error.utils.js";
-import { verifyAccessToken, type AccessTokenPayload } from "../utils/jwt.utils.js";
+import { AppError } from "../utils/app_error.js";
+import { verifyAccessToken, type AccessTokenPayload } from "../utils/jwt.js";
 
 export interface AuthenticatedRequest extends Request {
   user?: AccessTokenPayload;

@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import { db } from "../../db/index.js";
-import { createAccessToken, createRefreshToken, verifyRefreshToken } from "../../utils/jwt.utils.js";
-import { AppError } from "../../utils/app-error.utils.js";
+import { createAccessToken, createRefreshToken, verifyRefreshToken } from "../../utils/jwt.js";
+import { AppError } from "../../utils/app_error.js";
 
 const BCRYPT_ROUNDS = 12;
 

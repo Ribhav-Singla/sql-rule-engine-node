@@ -1,5 +1,5 @@
 import nodeSqlParser from "node-sql-parser";
-import { SCHEMA_NAMES, type SchemaName } from "../../types/api.js";
+import { SCHEMA_NAMES, type SchemaName } from "../../types/index.js";
 import { sandboxPool } from "../../db/index.js";
 import { settings } from "../../config/settings.js";
 

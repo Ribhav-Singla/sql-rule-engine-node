@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
 import { PrismaClient } from "@prisma/client";
-import "../config/settings.js";
 import { problems, expectedResults } from "./data.js";
 
 async function seed(): Promise<void> {

@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
-import type { ProblemResponse } from "../../types/api.js";
+import type { ProblemResponse } from "../../types/index.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 

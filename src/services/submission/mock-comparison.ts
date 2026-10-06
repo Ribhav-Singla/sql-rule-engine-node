@@ -1,4 +1,4 @@
-import type { ComparisonResult, ApprovedRuleCode } from "../../types/api.js";
+import type { ComparisonResult, ApprovedRuleCode } from "../../types/index.js";
 
 /**
  * Temporary mocked comparison result for MVP.

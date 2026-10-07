@@ -1,4 +1,4 @@
-import type { RuleResult } from "../../types/rules.js";
+import { RuleResult } from "../../types";
 
 const LARGE_TABLES = new Set(["orders", "transactions", "events", "logs", "customers"]);
 

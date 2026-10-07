@@ -1,4 +1,4 @@
-import type { RuleResult } from "../../types/rules.js";
+import { RuleResult } from "../../types";
 
 export function ruleSelectStar(ast: any): RuleResult {
   const columns = Array.isArray(ast?.columns) ? ast.columns : [];

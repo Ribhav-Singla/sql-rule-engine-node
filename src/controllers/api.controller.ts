@@ -4,48 +4,13 @@ import { normalizeSql } from "../services/normalization/query-normalizer.js";
 import { generateFingerprint } from "../services/utils/fingerprint.js";
 import { runRules } from "../services/rules/rule-engine.js";
 import { evaluateQuery } from "../services/evaluation/evaluator.js";
-import { getProblemById, getProblems } from "../services/problems/problem-repository.js";
+import { getProblemById, getProblems } from "../services/problems/problems.js";
 import { ApiError, ApiSuccess } from "../utils/api_response.js";
 import { evaluateSchema, fingerprintSchema, normalizeSchema, problemIdParamSchema, rulesSchema, validateSchema, finalSubmitSchema, sessionQuestionIdParamSchema, evaluateFollowupSchema } from "./validation/index.js";
 import { submitSessionQuestion } from "../services/submission/submit-service.js";
 import { evaluateSqlFollowup } from "../services/evaluator/sql-followup-evaluator.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { AppError } from "../utils/app_error.js";
-
-// Problems Controllers
-export const getAllProblems = (_req: Request, res: Response): void => {
-  try {
-    const problems = getProblems();
-    ApiSuccess(res, "Problems fetched successfully", 200, problems);
-  } catch {
-    ApiError(res, "Internal Server Error", 500);
-  }
-};
-
-export const getProblemByIdController = (req: Request, res: Response): void => {
-  try {
-    const validation = validateSchema(problemIdParamSchema, {
-      problemId: req.params.problemId,
-    });
-
-    if (!validation.success) {
-      ApiError(res, validation.error, 400);
-      return;
-    }
-
-    const { problemId } = validation.data;
-    const problem = getProblemById(problemId);
-
-    if (!problem) {
-      ApiError(res, `Problem '${problemId}' not found`, 404);
-      return;
-    }
-
-    ApiSuccess(res, "Problem fetched successfully", 200, problem);
-  } catch {
-    ApiError(res, "Internal Server Error", 500);
-  }
-};
 
 // Normalize Controller
 export const normalize = (req: Request, res: Response): void => {

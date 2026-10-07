@@ -1,4 +1,4 @@
-import type { RuleResult } from "../../types/rules.js";
+import { RuleResult } from "../../types";
 
 export function ruleAggregateNoGroup(ast: any): RuleResult {
   const aggregateFns = ["COUNT", "SUM", "AVG", "MIN", "MAX"];

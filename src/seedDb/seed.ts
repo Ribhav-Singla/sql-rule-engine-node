@@ -9,7 +9,7 @@ async function seed(): Promise<void> {
       const problemIdMap: Record<string, string> = {};
 
       for (const problemRecord of problems) {
-        const difficulty = problemRecord.pattern.split("/")[0].trim() || "Medium";
+        const difficulty = "Medium";
         const existingProblem = await tx.problem.findFirst({
           where: { title: problemRecord.title },
           select: { id: true },
@@ -18,6 +18,7 @@ async function seed(): Promise<void> {
           ? await tx.problem.update({
               where: { id: existingProblem.id },
               data: {
+                title: problemRecord.pattern,
                 questionText: `${problemRecord.title}`,
                 difficulty,
                 isFree: false,
@@ -26,7 +27,7 @@ async function seed(): Promise<void> {
           : await tx.problem.create({
               data: {
                 id: randomUUID(),
-                title: problemRecord.title,
+                title: problemRecord.pattern,
                 questionText: `${problemRecord.title}`,
                 difficulty,
                 isFree: false,

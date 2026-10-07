@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/app_error.js";
-import { verifyAccessToken, type AccessTokenPayload } from "../utils/jwt.js";
+import { verifyAccessToken } from "../utils/jwt.js";
+import { AccessTokenPayload } from "../types/index.js";
 
 export interface AuthenticatedRequest extends Request {
   user?: AccessTokenPayload;
@@ -11,7 +12,11 @@ export interface AuthenticatedRequest extends Request {
  * decoded payload to `req.user`. Any failure results in a 401. Register this
  * before the routes that require authentication.
  */
-export const authMiddleware = (req: Request, _res: Response, next: NextFunction): void => {
+export const authMiddleware = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void => {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     throw new AppError("Unauthorized", 401, "UNAUTHENTICATED");

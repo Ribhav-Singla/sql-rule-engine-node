@@ -1,4 +1,4 @@
-import type { RuleResult } from "../../types/rules.js";
+import { RuleResult } from "../../types";
 
 export function ruleRightJoin(ast: any): RuleResult {
   const from = ast.from || [];

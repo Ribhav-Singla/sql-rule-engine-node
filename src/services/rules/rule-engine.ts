@@ -3,7 +3,7 @@ import { ruleCartesianJoin } from "./rule-cartesian-join.js";
 import { ruleMissingWhere } from "./rule-missing-where.js";
 import { ruleRightJoin } from "./rule-right-join.js";
 import { ruleSelectStar } from "./rule-select-star.js";
-import type { RuleResult } from "../../types/rules.js";
+import { RuleResult } from "../../types";
 
 export function runRules(ast: any): RuleResult[] {
   const results = [

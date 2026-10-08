@@ -18,11 +18,13 @@ export const authMiddleware = (
   next: NextFunction,
 ): void => {
   const authHeader = req.headers.authorization;
+
   if (!authHeader) {
     throw new AppError("Unauthorized", 401, "UNAUTHENTICATED");
   }
 
   const token = authHeader.split(" ")[1];
+  
   if (!token) {
     throw new AppError("Unauthorized", 401, "UNAUTHENTICATED");
   }

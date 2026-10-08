@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { asyncHandler } from "../middlewares/async-handler.middleware.js";
-import { validate } from "../middlewares/validate.middleware.js";
-import { authMiddleware } from "../middlewares/auth.middleware.js";
-import { registerSchema, loginSchema } from "../controllers/validation/auth.js";
+import { asyncHandler } from "../middlewares/async_handler.js";
+import { validate } from "../middlewares/zod.js";
+import { authMiddleware } from "../middlewares/auth.js";
+import { registerSchema, loginSchema } from "../zod/index.js";
 import {
   handleRegister,
   handleLogin,

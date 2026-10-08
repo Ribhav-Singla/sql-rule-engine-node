@@ -1,23 +1,13 @@
 import bcrypt from "bcrypt";
 import { db } from "../../db/index.js";
-import { createAccessToken, createRefreshToken, verifyRefreshToken } from "../../utils/jwt.js";
+import {
+  createAccessToken,
+  createRefreshToken,
+  verifyRefreshToken,
+} from "../../utils/jwt.js";
 import { AppError } from "../../utils/app_error.js";
-
-const BCRYPT_ROUNDS = 12;
-
-export interface PublicUser {
-  id: string;
-  email: string;
-  role: string;
-}
-
-interface UserRow {
-  id: string;
-  email: string;
-  role: string;
-  passwordHash: string;
-  deletedAt: Date | null;
-}
+import { settings } from "../../config/settings.js";
+import { PublicUser, UserRow } from "../../types/index.js";
 
 const toPublicUser = (user: UserRow): PublicUser => ({
   id: user.id,
@@ -40,7 +30,7 @@ export const registerUser = async (email: string, password: string) => {
     throw new AppError("User already exists", 409, "USER_EXISTS");
   }
 
-  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const passwordHash = await bcrypt.hash(password, settings.BCRYPT_ROUNDS);
   const user = await db.user.create({ data: { email, passwordHash } });
   return issueSession(user as UserRow);
 };
@@ -63,13 +53,16 @@ export const loginUser = async (email: string, password: string) => {
 // in the DB is a reuse/revocation signal — drop every session for that user.
 export const rotateSession = async (oldRefreshToken: string) => {
   let payload: { userId: string };
+
   try {
     payload = verifyRefreshToken(oldRefreshToken);
   } catch {
     throw new AppError("Unauthorized", 401, "UNAUTHENTICATED");
   }
 
-  const session = await db.authSession.findUnique({ where: { refreshToken: oldRefreshToken } });
+  const session = await db.authSession.findUnique({
+    where: { refreshToken: oldRefreshToken },
+  });
 
   if (!session) {
     await db.authSession.deleteMany({ where: { userId: payload.userId } });
@@ -78,7 +71,12 @@ export const rotateSession = async (oldRefreshToken: string) => {
 
   const accessToken = createAccessToken(payload.userId);
   const refreshToken = createRefreshToken(payload.userId);
-  await db.authSession.update({ where: { id: session.id }, data: { refreshToken } });
+
+  await db.authSession.update({
+    where: { id: session.id },
+    data: { refreshToken },
+  });
+  
   return { accessToken, refreshToken };
 };
 
@@ -89,8 +87,10 @@ export const logoutSession = async (refreshToken: string) => {
 
 export const getUserById = async (userId: string): Promise<PublicUser> => {
   const user = await db.user.findUnique({ where: { id: userId } });
+
   if (!user || user.deletedAt) {
     throw new AppError("User not found", 404);
   }
+
   return toPublicUser(user);
 };

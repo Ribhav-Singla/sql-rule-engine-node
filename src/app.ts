@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser";
 import { apiRouter } from "./routes/api.js";
 import { authRouter } from "./routes/auth.js";
 import { problemsRouter } from "./routes/problems.js";
-import { authMiddleware } from "./middlewares/auth.middleware.js";
+import { authMiddleware } from "./middlewares/auth.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
 import { ApiSuccess, ApiError } from "./utils/api_response.js";
 

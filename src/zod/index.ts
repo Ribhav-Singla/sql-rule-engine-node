@@ -19,6 +19,21 @@ export const envSchema = z.object({
   NODE_ENV: z.enum(["development", "qa", "production"]).default("development"),
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
   JWT_REFRESH_SECRET: z.string().min(16, "JWT_REFRESH_SECRET must be at least 16 characters"),
-  ACCESS_TOKEN_TTL: z.string().default("15m"),
-  REFRESH_TOKEN_TTL: z.string().default("7d"),
+  ACCESS_TOKEN_TTL: z.string().regex(/^\d+[smhdw]$/).default("15m"),
+  REFRESH_TOKEN_TTL: z.string().regex(/^\d+[smhdw]$/).default("7d"),
+  REFRESH_COOKIE_NAME: z.string().min(1).default("refreshToken"),
+  BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(31).default(12),
+});
+
+export const registerSchema = z.object({
+  email: z.email("A valid email is required"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128, "Password cannot exceed 128 characters"),
+});
+
+export const loginSchema = z.object({
+  email: z.email("A valid email is required"),
+  password: z.string().min(1, "Password is required"),
 });

@@ -1,3 +1,6 @@
+import { loginSchema, registerSchema } from "../zod";
+import { z } from "zod";
+
 export const SCHEMA_NAMES = [
   "ecommerce",
   "banking",
@@ -5,6 +8,10 @@ export const SCHEMA_NAMES = [
   "inventory",
   "analytics",
 ] as const;
+
+export type RegisterInput = z.infer<typeof registerSchema>;
+export type LoginInput = z.infer<typeof loginSchema>;
+
 
 export type SchemaName = (typeof SCHEMA_NAMES)[number];
 
@@ -23,6 +30,21 @@ export interface RuleResult {
 
 export interface AccessTokenPayload {
   userId: string;
+}
+
+
+export interface PublicUser {
+  id: string;
+  email: string;
+  role: string;
+}
+
+export interface UserRow {
+  id: string;
+  email: string;
+  role: string;
+  passwordHash: string;
+  deletedAt: Date | null;
 }
 
 export interface ApiSuccessResponse<T = unknown> {

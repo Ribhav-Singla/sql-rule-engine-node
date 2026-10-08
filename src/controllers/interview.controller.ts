@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
+import type { AuthenticatedRequest } from "../middlewares/auth.js";
 import { ApiError, ApiSuccess } from "../utils/api_response.js";
 import { advanceInterview, getCurrentQuestion, startInterview } from "../services/interview/session-service.js";
 import { AppError } from "../utils/app_error.js";

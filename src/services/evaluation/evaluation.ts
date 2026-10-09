@@ -1,13 +1,49 @@
 import type { EvaluateResponse, SchemaName } from "../../types/index.js";
 import { normalizeSql } from "../normalization/query-normalizer.js";
-import { generateFingerprint } from "../utils/fingerprint.js";
+import { generateFingerprint } from "../fingerprint/fingerprint.js";
 import { getCache, setCache } from "../cache/redis-cache.js";
 import { runRules } from "../rules/rule-engine.js";
 import { executeQuery } from "../database/query-executor.js";
-import { normalizeResult } from "../utils/result-normalizer.js";
-import { hashAndCompare } from "../utils/comparator.js";
+import { normalizeResult } from "../normalization/result-normalizer.js";
 import { generateFeedback } from "../feedback/feedback-generator.js";
-import { getExpectedHash } from "./expected-results-repository.js";
+import { generateSha256Hash } from "../fingerprint/fingerprint.js";
+import { db } from "../../db/index.js";
+
+
+export async function getExpectedHash(
+  problemId: string,
+): Promise<string | null> {
+  const expectedResult = await db.expectedResult.findFirst({
+    where: {
+      problemId,
+      isActive: true,
+    },
+    orderBy: {
+      generatedAt: "desc",
+    },
+    select: {
+      rowsHash: true,
+    },
+  });
+
+  return expectedResult?.rowsHash ?? null;
+}
+
+
+export function hashAndCompare(
+  normalizedResult: string,
+  expectedHash: string,
+): { correct: boolean; result_hash: string; expected_hash: string } {
+  const resultHash = generateSha256Hash(normalizedResult).toLowerCase();
+  const expected = expectedHash.toLowerCase();
+
+  return {
+    correct: resultHash === expected,
+    result_hash: resultHash,
+    expected_hash: expected,
+  };
+}
+
 
 export async function evaluateQuery(sql: string, schemaName: SchemaName, problemId: string): Promise<EvaluateResponse> {
   const expectedHash = await getExpectedHash(problemId);
@@ -28,7 +64,6 @@ export async function evaluateQuery(sql: string, schemaName: SchemaName, problem
     if (cached) {
       return {
         cached: true,
-        fingerprint,
         ...cached,
       };
     }
@@ -51,8 +86,6 @@ export async function evaluateQuery(sql: string, schemaName: SchemaName, problem
 
   const cacheEntry: EvaluateResponse = {
     result_hash: comparison.result_hash,
-    correct: comparison.correct,
-    rule_results: ruleResults,
     question_attempt: {
       problem_id: problemId,
       raw_sql: sql,
@@ -62,6 +95,12 @@ export async function evaluateQuery(sql: string, schemaName: SchemaName, problem
       preview_rows: execution.rows.slice(0, 20),
       row_count: execution.rows.length,
     },
+    feedback:{
+      is_correct: feedback.is_correct,
+      score: feedback.score,
+      rule_issues: feedback.rule_issues,
+      messages: feedback.messages,
+    }
   };
 
   try {
@@ -72,8 +111,6 @@ export async function evaluateQuery(sql: string, schemaName: SchemaName, problem
 
   return {
     cached: false,
-    fingerprint,
-    feedback,
     ...cacheEntry,
   };
 }

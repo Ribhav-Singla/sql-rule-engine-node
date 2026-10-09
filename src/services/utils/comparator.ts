@@ -1,13 +1,5 @@
-import { normalizeResult } from "./result-normalizer";
-import { generateSha256Hash } from "./fingerprint.js";
+import { generateSha256Hash } from "../fingerprint/fingerprint.js";
 
-export function hashResult(rows: Record<string, unknown>[]): string {
-  return generateSha256Hash(normalizeResult(rows));
-}
-
-export function compareHashes(a: string, b: string): boolean {
-  return a === b;
-}
 
 export function hashAndCompare(
   normalizedResult: string,

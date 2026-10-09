@@ -1,19 +1,17 @@
 import type { Request, Response } from "express";
-
 import { normalizeSql } from "../services/normalization/query-normalizer.js";
-import { generateFingerprint } from "../services/utils/fingerprint.js";
+import { generateFingerprint } from "../services/fingerprint/fingerprint.js";
 import { runRules } from "../services/rules/rule-engine.js";
-import { evaluateQuery } from "../services/evaluation/evaluator.js";
-import { getProblemById, getProblems } from "../services/problems/problems.js";
+import { evaluateQuery } from "../services/evaluation/evaluation.js";
 import { ApiError, ApiSuccess } from "../utils/api_response.js";
-import { evaluateSchema, fingerprintSchema, normalizeSchema, problemIdParamSchema, rulesSchema, validateSchema, finalSubmitSchema, sessionQuestionIdParamSchema, evaluateFollowupSchema } from "./validation/index.js";
+import { evaluateSchema, fingerprintSchema, normalizeSchema, problemIdParamSchema, rulesSchema, validateSchema, finalSubmitSchema, sessionQuestionIdParamSchema, evaluateFollowupSchema } from "./../zod/index.js";
 import { submitSessionQuestion } from "../services/submission/submit-service.js";
 import { evaluateSqlFollowup } from "../services/evaluator/sql-followup-evaluator.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.js";
 import { AppError } from "../utils/app_error.js";
 
 // Normalize Controller
-export const normalize = (req: Request, res: Response): void => {
+export const normalizeController = (req: Request, res: Response): void => {
   try {
     const validation = validateSchema(normalizeSchema, req.body);
 
@@ -111,12 +109,6 @@ export const evaluateQueryController = async (req: Request, res: Response): Prom
     }
 
     const { sql, schema_name, problem_id } = validation.data;
-
-    const userId = (req as AuthenticatedRequest).user?.userId;
-    if (!userId) {
-      ApiError(res, "User is not authenticated", 401, undefined, "UNAUTHENTICATED");
-      return;
-    }
 
     const result = await evaluateQuery(sql, schema_name, problem_id);
 

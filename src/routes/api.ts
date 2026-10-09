@@ -1,12 +1,12 @@
 import { Router } from "express";
 import {
-  normalize,
+  normalizeController,
   generateFingerprintController,
   runRulesController,
   evaluateQueryController,
   finalSubmitController,
   evaluateFollowupController,
-} from "../controllers/api.controller.js";
+} from "../controllers/api.js";
 import { interviewRouter } from "../controllers/interview.controller.js";
 
 // Protected rule-engine routes. Problem browsing lives in the public
@@ -14,7 +14,7 @@ import { interviewRouter } from "../controllers/interview.controller.js";
 export const apiRouter = Router();
 
 // SQL normalization
-apiRouter.post("/normalize", normalize);
+apiRouter.post("/normalize", normalizeController);
 
 // Fingerprint generation
 apiRouter.post("/fingerprint", generateFingerprintController);

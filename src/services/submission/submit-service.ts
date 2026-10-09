@@ -6,7 +6,7 @@ import { db } from "../../db/index.js";
 import { randomUUID } from "crypto";
 import { evaluateSqlFollowup } from "../evaluator/sql-followup-evaluator.js";
 import { normalizeSql } from "../normalization/query-normalizer.js";
-import { generateSha256Hash } from "../utils/fingerprint.js";
+import { generateSha256Hash } from "../fingerprint/fingerprint.js";
 
 export async function submitSessionQuestion(
   sessionQuestionId: string,

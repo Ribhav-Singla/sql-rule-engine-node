@@ -233,3 +233,13 @@ export interface ComparisonResult {
   matchedExpectedOutput: boolean;
   detectedRules: Array<{ ruleCode: ApprovedRuleCode; passed: boolean }>;
 }
+
+export interface FeedbackInput {
+  isCorrect: boolean;
+  ruleIssues: Array<{
+    triggered: boolean;
+    issue: string;
+    category: string;
+    explanation: string;
+  }>;
+}

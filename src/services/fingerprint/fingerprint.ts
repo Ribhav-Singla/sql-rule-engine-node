@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 
 export function generateFingerprint(problemId: string, schemaName: string, normalizedSql: string): string {
   const hash = generateSha256Hash(normalizedSql);
-  return `${problemId || "global"}:${schemaName}:${hash}`;
+  return `${problemId}:${schemaName}:${hash}`;
 }
 
 export function generateSha256Hash(text: string): string {

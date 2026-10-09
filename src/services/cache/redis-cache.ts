@@ -23,7 +23,11 @@ export async function getCache(key: string): Promise<any | null> {
   return data ? JSON.parse(data) : null;
 }
 
-export async function setCache(key: string, value: any, ttl = 3600): Promise<void> {
+export async function setCache(
+  key: string,
+  value: any,
+  ttl = settings.CACHE_TTL_SECONDS,
+): Promise<void> {
   await ensureRedisConnection();
   await client.set(key, JSON.stringify(value), { EX: ttl });
 }

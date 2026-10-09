@@ -1,12 +1,4 @@
-interface FeedbackInput {
-  isCorrect: boolean;
-  ruleIssues: Array<{
-    triggered: boolean;
-    issue: string;
-    category: string;
-    explanation: string;
-  }>;
-}
+import { FeedbackInput } from "../../types/index.js";
 
 export function generateFeedback({ isCorrect, ruleIssues }: FeedbackInput) {
   const messages: string[] = [];

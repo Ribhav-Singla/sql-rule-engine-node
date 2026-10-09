@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { getProblemById, getProblems } from "../services/problems/problems.js";
 import { ApiError, ApiSuccess } from "../utils/api_response.js";
-import { problemIdParamSchema } from "./validation/index.js";
+import { problemIdParamSchema } from "./../zod/index.js";
 
 export const getAllProblems = async (_req: Request, res: Response): Promise<void> => {
   const problems = await getProblems();

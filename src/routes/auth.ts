@@ -9,7 +9,7 @@ import {
   handleRefresh,
   handleLogout,
   getMe,
-} from "../controllers/auth.controller.js";
+} from "../controllers/auth.js";
 
 export const authRouter = Router();
 

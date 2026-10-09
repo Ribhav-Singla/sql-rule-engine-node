@@ -2,11 +2,7 @@ import { loginSchema, registerSchema } from "../zod";
 import { z } from "zod";
 
 export const SCHEMA_NAMES = [
-  "ecommerce",
-  "banking",
-  "social",
-  "inventory",
-  "analytics",
+  "ecommerce"
 ] as const;
 
 export type RegisterInput = z.infer<typeof registerSchema>;

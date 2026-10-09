@@ -14,8 +14,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "tsx ./src/seedDb/seed.ts",
-    "db:update": "tsx ./src/seedDb/seed.ts",
+    "seed": "tsx ./src/seedDb/seed.ts",
     "db:sandbox": "tsx ./src/db/setup-sandbox-role.ts"
   },
   "keywords": [],

@@ -23,7 +23,7 @@ async function activateNextQuestion(tx: TransactionClient, sessionId: string) {
 
   const selected = await tx.sessionQuestion.findUnique({
     where: { id: next.id },
-    include: { problem: true },
+    include: { problem: true, maxRuns: true },
   });
 
   if (!selected) return null;
@@ -47,6 +47,7 @@ async function activateNextQuestion(tx: TransactionClient, sessionId: string) {
     orderIndex: selected.orderIndex,
     timerEnabled: selected.timerEnabled,
     timeLimitSeconds: selected.timeLimitSeconds,
+    max_runs: selected.maxRuns,
     status: "active",
     startedAt,
     deadlineAt,
@@ -103,7 +104,7 @@ export async function getCurrentQuestion(sessionId: string, userId: string) {
 
     const active = await tx.sessionQuestion.findFirst({
       where: { sessionId, status: "active" },
-      include: { problem: true },
+      include: { problem: true, maxRuns: true },
     });
 
     if (active?.deadlineAt && active.deadlineAt <= new Date()) {
@@ -131,6 +132,7 @@ export async function getCurrentQuestion(sessionId: string, userId: string) {
         orderIndex: active.orderIndex,
         timerEnabled: active.timerEnabled,
         timeLimitSeconds: active.timeLimitSeconds,
+        max_runs: active.maxRuns,
         status: active.status,
         startedAt: active.startedAt,
         deadlineAt: active.deadlineAt,

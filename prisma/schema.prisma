@@ -141,6 +141,7 @@ model SessionQuestion {
   orderIndex       Int              @map("order_index")
   timerEnabled     Boolean          @default(false) @map("timer_enabled")
   timeLimitSeconds Int?             @map("time_limit_seconds")
+  maxRuns          Int              @default(3) @map("max_runs")
   status           String           @default("pending")
   startedAt        DateTime?        @map("started_at")
   deadlineAt       DateTime?        @map("deadline_at")

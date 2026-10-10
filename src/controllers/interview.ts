@@ -41,8 +41,6 @@ interviewRouter.post("/start/:userId", async (req, res) => {
   }
 });
 
-
-
 interviewRouter.get("/:sessionId/current", async (req, res) => {
   try {
     const result = await getCurrentQuestion(req.params.sessionId, userIdFrom(req as AuthenticatedRequest));

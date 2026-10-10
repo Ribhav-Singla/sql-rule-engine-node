@@ -254,9 +254,7 @@ export const evaluateQueryBeforeSubmitController = async (
       return;
     }
 
-    ApiSuccess(res, "Query evaluated successfully", 200, {
-      question_attempt: result.data,
-    });
+    ApiSuccess(res, "Query evaluated successfully", 200, result.data);
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

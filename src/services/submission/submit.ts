@@ -192,7 +192,10 @@ export async function evaluateBeforeSubmit(
   sql: string,
 ): Promise<{
   success: boolean;
-  data?: EvaluateResponse["question_attempt"];
+  data?: {
+    question_attempt: EvaluateResponse["question_attempt"];
+    max_runs: number;
+  };
   error?: string;
   errorCode?: string;
   statusCode?: number;
@@ -201,6 +204,7 @@ export async function evaluateBeforeSubmit(
     where: { id: sessionQuestionId, status: "active", session: { userId } },
     select: {
       deadlineAt: true,
+      maxRuns: true,
       problem: {
         select: {
           id: true,
@@ -228,6 +232,19 @@ export async function evaluateBeforeSubmit(
       success: false,
       error: "The time limit for this question has expired.",
       errorCode: "QUESTION_TIMED_OUT",
+      statusCode: 409,
+    };
+  }
+
+  const runCount = await db.attemptRun.count({
+    where: { sessionQuestionId },
+  });
+  if (runCount >= sessionRecord.maxRuns) {
+    return {
+      success: false,
+      error:
+        "Maximum query runs exhausted. Use the final submit endpoint to submit your answer.",
+      errorCode: "MAX_RUNS_EXHAUSTED",
       statusCode: 409,
     };
   }
@@ -282,5 +299,11 @@ export async function evaluateBeforeSubmit(
     });
   });
 
-  return { success: true, data: questionAttempt };
+  return {
+    success: true,
+    data: {
+      question_attempt: questionAttempt,
+      max_runs: sessionRecord.maxRuns,
+    },
+  };
 }

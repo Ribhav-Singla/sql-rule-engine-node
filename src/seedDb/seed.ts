@@ -15,6 +15,20 @@ async function prisma_seed(): Promise<void> {
   const prisma = new PrismaClient();
   try {
     await prisma.$transaction(async (tx) => {
+      await tx.attemptRun.deleteMany();
+      await tx.attempt.deleteMany();
+      await tx.sessionQuestion.deleteMany();
+      await tx.interviewSession.deleteMany();
+      await tx.authSession.deleteMany();
+      await tx.user.deleteMany();
+      await tx.expectedResult.deleteMany();
+      await tx.problemSolution.deleteMany();
+      await tx.problemSchemaTable.deleteMany();
+      await tx.problem.deleteMany();
+      await tx.schemaColumn.deleteMany();
+      await tx.schemaTable.deleteMany();
+      await tx.schema.deleteMany();
+
       const schema = await tx.schema.upsert({
         where: { name: schemaMetadata.name },
         update: { description: schemaMetadata.description },

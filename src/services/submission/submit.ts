@@ -85,6 +85,17 @@ export async function submitSessionQuestion(
     const normalizedFinalQuery =
       normalizeSql(finalQuery).normalized_sql ?? finalQuery;
     await db.$transaction(async (tx) => {
+      await tx.attempt.create({
+        data: {
+          id: attemptId,
+          sessionQuestionId,
+          userId,
+          finalQuery,
+          status: "completed",
+          score: feedbackData.score,
+        },
+      });
+
       await tx.attemptRun.create({
         data: {
           attemptId,
@@ -94,17 +105,6 @@ export async function submitSessionQuestion(
           output: feedbackData as unknown as Prisma.InputJsonValue,
           errorText: null,
           runtimeMs: 0,
-        },
-      });
-
-      await tx.attempt.create({
-        data: {
-          id: attemptId,
-          sessionQuestionId,
-          userId,
-          finalQuery,
-          status: "completed",
-          score: feedbackData.score,
         },
       });
     });

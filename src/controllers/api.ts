@@ -5,7 +5,7 @@ import { runRules } from "../services/rules/rule-engine.js";
 import { evaluateQuery } from "../services/evaluation/evaluation.js";
 import { ApiError, ApiSuccess } from "../utils/api_response.js";
 import { evaluateSchema, fingerprintSchema, normalizeSchema, problemIdParamSchema, rulesSchema, validateSchema, finalSubmitSchema, sessionQuestionIdParamSchema, evaluateFollowupSchema } from "./../zod/index.js";
-import { submitSessionQuestion } from "../services/submission/submit-service.js";
+import { submitSessionQuestion } from "../services/submission/submit.js";
 import { evaluateSqlFollowup } from "../services/evaluator/sql-followup-evaluator.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.js";
 import { AppError } from "../utils/app_error.js";

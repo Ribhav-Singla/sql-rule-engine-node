@@ -166,6 +166,19 @@ export const sessionQuestionIdParamSchema = z.object({
     .max(100),
 });
 
+
+export const startSchema = z.object({
+  mode: z.string().min(1).max(50).optional(),
+  readinessCheckPassed: z.boolean().optional(),
+  questions: z.array(z.object({
+    problemId: z.string().uuid(),
+    timerEnabled: z.boolean().optional(),
+    timeLimitSeconds: z.number().int().positive().max(86400).optional(),
+  }).refine((question) => !question.timerEnabled || question.timeLimitSeconds !== undefined, {
+    message: "timeLimitSeconds is required when timerEnabled is true",
+  })).min(1),
+});
+
 export type NormalizeInput = z.infer<typeof normalizeSchema>;
 export type FingerprintInput = z.infer<typeof fingerprintSchema>;
 export type RulesInput = z.infer<typeof rulesSchema>;

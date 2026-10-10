@@ -260,3 +260,14 @@ export interface RelevantTableLink {
     }>;
   };
 };
+
+
+export interface StartInterviewInput {
+  mode?: string;
+  readinessCheckPassed?: boolean;
+  questions: Array<{
+    problemId: string;
+    timerEnabled?: boolean;
+    timeLimitSeconds?: number;
+  }>;
+}

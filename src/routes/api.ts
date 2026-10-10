@@ -7,7 +7,7 @@ import {
   finalSubmitController,
   evaluateFollowupController,
 } from "../controllers/api.js";
-import { interviewRouter } from "../controllers/interview.controller.js";
+import { interviewRouter } from "../controllers/interview.js";
 
 // Protected rule-engine routes. Problem browsing lives in the public
 // problemsRouter; everything here runs behind authMiddleware (see index.ts).

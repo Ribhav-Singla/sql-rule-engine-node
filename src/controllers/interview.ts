@@ -1,23 +1,11 @@
 import { Router } from "express";
-import { z } from "zod";
 import type { AuthenticatedRequest } from "../middlewares/auth.js";
 import { ApiError, ApiSuccess } from "../utils/api_response.js";
-import { advanceInterview, getCurrentQuestion, startInterview } from "../services/interview/session-service.js";
+import { advanceInterview, getCurrentQuestion, startInterview } from "../services/interview/session.js";
 import { AppError } from "../utils/app_error.js";
+import { startSchema } from "../zod/index.js";
 
 export const interviewRouter = Router();
-
-const startSchema = z.object({
-  mode: z.string().min(1).max(50).optional(),
-  readinessCheckPassed: z.boolean().optional(),
-  questions: z.array(z.object({
-    problemId: z.string().uuid(),
-    timerEnabled: z.boolean().optional(),
-    timeLimitSeconds: z.number().int().positive().max(86400).optional(),
-  }).refine((question) => !question.timerEnabled || question.timeLimitSeconds !== undefined, {
-    message: "timeLimitSeconds is required when timerEnabled is true",
-  })).min(1),
-});
 
 function userIdFrom(req: AuthenticatedRequest): string {
   if (!req.user?.userId) throw new Error("Unauthenticated");

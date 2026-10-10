@@ -71,15 +71,7 @@ export async function submitSessionQuestion(
     const attemptId = randomUUID();
     const normalizedFinalQuery = normalizeSql(finalQuery).normalized_sql ?? finalQuery;
     await db.$transaction(async (tx) => {
-      await tx.attempt.create({ data: {
-        id: attemptId,
-        sessionQuestionId,
-        userId,
-        finalQuery,
-        status: "completed",
-        score: feedbackData.score,
-      } });
-
+      
       await tx.attemptRun.create({ data: {
         attemptId,
         sessionQuestionId,
@@ -89,6 +81,16 @@ export async function submitSessionQuestion(
         errorText: null,
         runtimeMs: 0,
       } });
+
+      await tx.attempt.create({ data: {
+        id: attemptId,
+        sessionQuestionId,
+        userId,
+        finalQuery,
+        status: "completed",
+        score: feedbackData.score,
+      } });
+
     });
 
     await db.sessionQuestion.update({

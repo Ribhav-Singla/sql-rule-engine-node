@@ -1,7 +1,12 @@
 import "@dotenvx/dotenvx/config";
 import { randomUUID } from "crypto";
 import { PrismaClient } from "@prisma/client";
-import { problems, expectedResults } from "./prisma_data.js";
+import {
+  problems,
+  expectedResults,
+  schemaMetadata,
+  relevantTablesByProblem,
+} from "./prisma_data.js";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
@@ -10,6 +15,41 @@ async function prisma_seed(): Promise<void> {
   const prisma = new PrismaClient();
   try {
     await prisma.$transaction(async (tx) => {
+      const schema = await tx.schema.upsert({
+        where: { name: schemaMetadata.name },
+        update: { description: schemaMetadata.description },
+        create: {
+          id: randomUUID(),
+          name: schemaMetadata.name,
+          description: schemaMetadata.description,
+        },
+      });
+
+      const schemaTableIds = new Map<string, string>();
+
+      await tx.schemaTable.deleteMany({ where: { schemaId: schema.id } });
+      for (const tableRecord of schemaMetadata.tables) {
+        const schemaTable = await tx.schemaTable.create({
+          data: {
+            id: randomUUID(),
+            schemaId: schema.id,
+            tableName: tableRecord.name,
+            columns: {
+              create: tableRecord.columns.map((column) => ({
+                id: randomUUID(),
+                columnName: column.name,
+                dataType: column.dataType,
+                isPk: column.isPk ?? false,
+                isFk: column.isFk ?? false,
+                fkReference: column.fkReference,
+                isNullable: false,
+              })),
+            },
+          },
+        });
+        schemaTableIds.set(tableRecord.name, schemaTable.id);
+      }
+
       const problemIdMap: Record<string, string> = {};
 
       for (const problemRecord of problems) {
@@ -31,11 +71,13 @@ async function prisma_seed(): Promise<void> {
                 questionText: `${problemRecord.title}`,
                 difficulty,
                 isFree: false,
+                schemaId: schema.id,
               },
             })
           : await tx.problem.create({
               data: {
                 id: randomUUID(),
+                schemaId: schema.id,
                 title: problemRecord.pattern,
                 questionText: `${problemRecord.title}`,
                 difficulty,
@@ -50,6 +92,36 @@ async function prisma_seed(): Promise<void> {
         await tx.expectedResult.deleteMany({
           where: { problemId: problem.id },
         });
+        await tx.problemSchemaTable.deleteMany({
+          where: { problemId: problem.id },
+        });
+
+        const relevantTableNames =
+          relevantTablesByProblem[problemRecord.problem_id];
+        if (!relevantTableNames) {
+          throw new Error(
+            `No relevant table mapping found for problem_id: ${problemRecord.problem_id}`,
+          );
+        }
+
+        const relevantTableIds = relevantTableNames.map((tableName) => {
+          const schemaTableId = schemaTableIds.get(tableName);
+          if (!schemaTableId) {
+            throw new Error(
+              `Table '${tableName}' is not defined in schema '${schema.name}'`,
+            );
+          }
+          return schemaTableId;
+        });
+
+        await tx.problemSchemaTable.createMany({
+          data: relevantTableIds.map((schemaTableId) => ({
+            problemId: problem.id,
+            schemaTableId,
+          })),
+          skipDuplicates: true,
+        });
+
         await tx.problemSolution.create({
           data: {
             id: randomUUID(),

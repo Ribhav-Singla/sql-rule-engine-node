@@ -243,3 +243,20 @@ export interface FeedbackInput {
     explanation: string;
   }>;
 }
+
+
+export interface RelevantTableLink {
+  schemaTable: {
+    id: string;
+    tableName: string;
+    columns: Array<{
+      id: string;
+      columnName: string;
+      dataType: string;
+      isPk: boolean;
+      isFk: boolean;
+      fkReference: string | null;
+      isNullable: boolean;
+    }>;
+  };
+};

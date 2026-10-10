@@ -165,6 +165,7 @@ model Attempt {
   user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   runs              AttemptRun[]
 
+  @@unique([sessionQuestionId], map: "attempts_session_question_id_idx")
   @@map("attempts")
 }
 

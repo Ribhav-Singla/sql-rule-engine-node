@@ -150,6 +150,12 @@ export async function advanceInterview(sessionId: string, userId: string) {
         404,
         "SESSION_NOT_FOUND",
       );
+    if (session.status === "completed")
+      throw new AppError(
+        "Interview session is already completed",
+        409,
+        "SESSION_ALREADY_COMPLETED",
+      );
 
     await tx.sessionQuestion.updateMany({
       where: { sessionId, status: "active" },

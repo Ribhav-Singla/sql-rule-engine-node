@@ -1,5 +1,5 @@
 import { getMockedComparisonResult } from "./mock-comparison.js";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { generateSqlFeedback } from "../feedback/feedback-generator.js";
 import type { CombinedDebriefResponse } from "../../types/index.js";
 import { db } from "../../db/index.js";
@@ -13,9 +13,14 @@ export async function submitSessionQuestion(
   userId: string,
   finalQuery: string,
   explanationText: string,
-  edgeCaseText: string
-): Promise<{ success: boolean; data?: CombinedDebriefResponse; error?: string; errorCode?: string; statusCode?: number }> {
-  
+  edgeCaseText: string,
+): Promise<{
+  success: boolean;
+  data?: CombinedDebriefResponse;
+  error?: string;
+  errorCode?: string;
+  statusCode?: number;
+}> {
   const sessionRecord = await db.sessionQuestion.findFirst({
     where: { id: sessionQuestionId, status: "active", session: { userId } },
   });
@@ -30,9 +35,15 @@ export async function submitSessionQuestion(
   }
 
   const question = sessionRecord;
-  if (question.status === "timed_out" || (question.deadlineAt && question.deadlineAt <= new Date())) {
+  if (
+    question.status === "timed_out" ||
+    (question.deadlineAt && question.deadlineAt <= new Date())
+  ) {
     if (question.status !== "timed_out") {
-      await db.sessionQuestion.update({ where: { id: sessionQuestionId }, data: { status: "timed_out" } });
+      await db.sessionQuestion.update({
+        where: { id: sessionQuestionId },
+        data: { status: "timed_out" },
+      });
     }
     return {
       success: false,
@@ -43,14 +54,16 @@ export async function submitSessionQuestion(
   }
 
   // 3. Check if already submitted
-  const existingAttempt = await db.attempt.findFirst({ where: { sessionQuestionId } });
+  const existingAttempt = await db.attempt.findFirst({
+    where: { sessionQuestionId },
+  });
 
   if (existingAttempt) {
     return {
       success: false,
       error: "Final submission already completed for this question.",
       errorCode: "SUBMIT_LIMIT_REACHED",
-      statusCode: 409
+      statusCode: 409,
     };
   }
 
@@ -64,33 +77,36 @@ export async function submitSessionQuestion(
       comparisonResult,
       ruleSignals: comparisonResult.detectedRules,
       explanationText,
-      edgeCaseText
+      edgeCaseText,
     });
 
     // 6. Save to DB
     const attemptId = randomUUID();
-    const normalizedFinalQuery = normalizeSql(finalQuery).normalized_sql ?? finalQuery;
+    const normalizedFinalQuery =
+      normalizeSql(finalQuery).normalized_sql ?? finalQuery;
     await db.$transaction(async (tx) => {
-      
-      await tx.attemptRun.create({ data: {
-        attemptId,
-        sessionQuestionId,
-        queryText: normalizedFinalQuery,
-        queryHash: generateSha256Hash(normalizedFinalQuery),
-        output: feedbackData as unknown as Prisma.InputJsonValue,
-        errorText: null,
-        runtimeMs: 0,
-      } });
+      await tx.attemptRun.create({
+        data: {
+          attemptId,
+          sessionQuestionId,
+          queryText: normalizedFinalQuery,
+          queryHash: generateSha256Hash(normalizedFinalQuery),
+          output: feedbackData as unknown as Prisma.InputJsonValue,
+          errorText: null,
+          runtimeMs: 0,
+        },
+      });
 
-      await tx.attempt.create({ data: {
-        id: attemptId,
-        sessionQuestionId,
-        userId,
-        finalQuery,
-        status: "completed",
-        score: feedbackData.score,
-      } });
-
+      await tx.attempt.create({
+        data: {
+          id: attemptId,
+          sessionQuestionId,
+          userId,
+          finalQuery,
+          status: "completed",
+          score: feedbackData.score,
+        },
+      });
     });
 
     await db.sessionQuestion.update({
@@ -102,7 +118,7 @@ export async function submitSessionQuestion(
       questionId: question.problemId,
       attemptId: attemptId,
       followupQuestion: "Please explain your SQL query and logic.",
-      answer: explanationText
+      answer: explanationText,
     });
 
     // 8. Return frontend-ready Combined Debrief JSON
@@ -112,18 +128,28 @@ export async function submitSessionQuestion(
       sessionQuestionId,
       ...feedbackData,
       explanationEvaluation,
-      overallNextStep: explanationEvaluation.nextStep || feedbackData.nextStep
+      overallNextStep: explanationEvaluation.nextStep || feedbackData.nextStep,
     };
 
     return { success: true, data: debrief };
-
   } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return {
+        success: false,
+        error: "Final submission already completed for this question.",
+        errorCode: "SUBMIT_LIMIT_REACHED",
+        statusCode: 409,
+      };
+    }
     console.error("Feedback generation/DB save failed:", error);
     return {
       success: false,
       error: "Failed to generate feedback for submission.",
       errorCode: "FEEDBACK_FAILED",
-      statusCode: 500
+      statusCode: 500,
     };
   }
 }

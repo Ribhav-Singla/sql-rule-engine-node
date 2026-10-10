@@ -10,6 +10,20 @@ Backend API for SQL interview practice. The application provides:
 - PostgreSQL-backed metadata and ecommerce practice data.
 - Redis caching.
 
+## Contents
+
+- [Requirements](#requirements)
+- [Quick start](#quick-start)
+- [Infrastructure setup](#infrastructure-setup)
+- [Environment variables](#environment-variables)
+- [Database workflow](#prisma-database-workflow)
+- [Available scripts](#available-scripts)
+- [Run the application](#run-the-application)
+- [API overview](#api-overview)
+- [Complete interview flow](#complete-interview-flow)
+- [Validation and formatting](#validation-and-formatting)
+- [Troubleshooting](#troubleshooting)
+
 ## Requirements
 
 - Node.js 20 or newer.
@@ -30,6 +44,27 @@ You can use the equivalent npm commands if preferred:
 ```powershell
 npm install
 ```
+
+## Quick start
+
+After installing the prerequisites, run the following sequence from the
+repository root:
+
+```powershell
+corepack enable
+pnpm install
+docker start postgres-db
+docker start redis-db
+pnpm db:generate
+pnpm db:migrate
+pnpm seed
+pnpm db:sandbox
+pnpm dev
+```
+
+If the Docker containers do not exist yet, follow the
+[Infrastructure setup](#infrastructure-setup) section first. Ensure the
+`.env` file is configured before running the seed and sandbox commands.
 
 ## Infrastructure setup
 
@@ -179,6 +214,23 @@ pnpm prisma migrate status
 Use migrations for committed schema changes. Use `db push` only for local
 experimentation where migration history is not required.
 
+## Available scripts
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` / `npm run dev` | Start the development server with automatic restart. |
+| `pnpm build` / `npm run build` | Compile TypeScript and resolve path aliases. |
+| `pnpm start` / `npm run start` | Run the compiled application from `dist`. |
+| `pnpm typecheck` / `npm run typecheck` | Check TypeScript without emitting files. |
+| `pnpm lint` / `npm run lint` | Run ESLint. |
+| `pnpm format` / `npm run format` | Format source files with Prettier. |
+| `pnpm db:generate` / `npm run db:generate` | Generate the Prisma client. |
+| `pnpm db:migrate` / `npm run db:migrate` | Apply or create development migrations. |
+| `pnpm db:push` / `npm run db:push` | Push the Prisma schema without a migration. |
+| `pnpm db:studio` / `npm run db:studio` | Open Prisma Studio. |
+| `pnpm seed` / `npm run seed` | Reset and seed application and ecommerce data. |
+| `pnpm db:sandbox` / `npm run db:sandbox` | Configure the least-privilege SQL sandbox role. |
+
 ## Seed data
 
 Run:
@@ -191,6 +243,12 @@ or:
 
 ```powershell
 npm run seed
+```
+
+After seeding the database, configure the sandbox database role:
+
+```powershell
+npm run db:sandbox
 ```
 
 The seed performs two operations:
@@ -359,6 +417,8 @@ POST /api/fingerprint
 POST /api/rules
 POST /api/evaluate
 POST /api/sql/session-questions/<sessionQuestionId>/evaluate-before-submit
+POST /api/sql/session-questions/<sessionQuestionId>/submit
+POST /api/sql/attempts/<attemptId>/evaluate-followup
 ```
 
 Example evaluation request:
@@ -414,7 +474,9 @@ Content-Type: application/json
 ```
 
 The authenticated user ID in the URL must match the user ID in the access
-token. The first question is activated automatically.
+token. The first question is activated automatically. A user cannot start a
+second interview while an existing interview has a status other than
+`completed`; the API returns `SESSION_ALREADY_ACTIVE` with HTTP 409.
 
 ### 3. Get the current question
 
@@ -515,6 +577,16 @@ Errors use:
 }
 ```
 
+Protected endpoints require an access token in the `Authorization` header:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+Do not send a request body with GET endpoints. A whitespace-only body with
+`Content-Type: application/json` is invalid JSON and returns `INVALID_JSON`
+with HTTP 400.
+
 ## Useful Docker commands
 
 View PostgreSQL logs:
@@ -558,3 +630,45 @@ pnpm prisma migrate reset
 
 This deletes all database data, including users and interview history. Use it
 only for a disposable development database.
+
+## Troubleshooting
+
+### PostgreSQL or Redis is unavailable
+
+Check that both containers are running:
+
+```powershell
+docker ps
+docker start postgres-db
+docker start redis-db
+```
+
+If a container does not exist, rerun the corresponding `docker run` command in
+[Infrastructure setup](#infrastructure-setup).
+
+### Prisma cannot connect to the database
+
+Confirm that `DATABASE_URL` in `.env` matches the PostgreSQL container and then
+regenerate the client:
+
+```powershell
+pnpm db:generate
+pnpm prisma migrate status
+```
+
+### SQL sandbox execution fails
+
+Confirm that `SANDBOX_DATABASE_URL` is set, then recreate the sandbox role:
+
+```powershell
+pnpm db:sandbox
+```
+
+The application can fall back to `DATABASE_URL` for local development, but a
+separate read-only sandbox connection is strongly recommended and should be
+used in shared or production environments.
+
+### The API returns `401 Unauthorized`
+
+Log in again or call `/api/auth/refresh` when the access token expires. Send
+the refreshed access token as a Bearer token on protected requests.

@@ -23,7 +23,7 @@ async function activateNextQuestion(tx: TransactionClient, sessionId: string) {
 
   const selected = await tx.sessionQuestion.findUnique({
     where: { id: next.id },
-    include: { problem: true, maxRuns: true },
+    include: { problem: true },
   });
 
   if (!selected) return null;
@@ -67,6 +67,22 @@ export async function startInterview(
   }
 
   return db.$transaction(async (tx) => {
+    const ongoingSession = await tx.interviewSession.findFirst({
+      where: {
+        userId,
+        status: { not: "completed" },
+      },
+      select: { id: true },
+    });
+
+    if (ongoingSession) {
+      throw new AppError(
+        "You already have an ongoing interview session",
+        409,
+        "SESSION_ALREADY_ACTIVE",
+      );
+    }
+
     const session = await tx.interviewSession.create({
       data: {
         userId,
@@ -104,7 +120,7 @@ export async function getCurrentQuestion(sessionId: string, userId: string) {
 
     const active = await tx.sessionQuestion.findFirst({
       where: { sessionId, status: "active" },
-      include: { problem: true, maxRuns: true },
+      include: { problem: true },
     });
 
     if (active?.deadlineAt && active.deadlineAt <= new Date()) {

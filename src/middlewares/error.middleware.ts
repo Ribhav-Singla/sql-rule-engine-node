@@ -17,6 +17,17 @@ export const errorHandler = (err: unknown, _req: Request, res: Response, _next: 
     return;
   }
 
+  if (
+    err instanceof SyntaxError &&
+    typeof err === "object" &&
+    err !== null &&
+    "type" in err &&
+    err.type === "entity.parse.failed"
+  ) {
+    ApiError(res, "Request body contains invalid JSON", 400, undefined, "INVALID_JSON");
+    return;
+  }
+
   if (err instanceof ZodError) {
     ApiError(res, formatZodError(err), 400, undefined, "VALIDATION_ERROR");
     return;

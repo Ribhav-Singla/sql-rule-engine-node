@@ -4,6 +4,7 @@ import {
   generateFingerprintController,
   runRulesController,
   evaluateQueryController,
+  evaluateQueryBeforeSubmitController,
   finalSubmitController,
   evaluateFollowupController,
 } from "../controllers/api.js";
@@ -24,6 +25,9 @@ apiRouter.post("/rules", runRulesController);
 
 // Query evaluation
 apiRouter.post("/evaluate", evaluateQueryController);
+
+// Run Query before final submission to get output preview
+apiRouter.post("/sql/session-questions/:sessionQuestionId/evaluate-before-submit", evaluateQueryBeforeSubmitController);
 
 // Final Submit
 apiRouter.post("/sql/session-questions/:sessionQuestionId/submit", finalSubmitController);

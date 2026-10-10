@@ -116,25 +116,25 @@ BCRYPT_ROUNDS=12
 
 ### Environment variable reference
 
-| Variable | Description |
-| --- | --- |
-| `PORT` | HTTP server port. Defaults to `8000`. |
-| `DATABASE_URL` | Privileged PostgreSQL connection used by Prisma and trusted operations. |
-| `SANDBOX_DATABASE_URL` | Optional least-privilege PostgreSQL connection for untrusted SQL execution. |
-| `REDIS_URL` | Redis connection URL. |
-| `CACHE_TTL_SECONDS` | Cache lifetime in seconds. |
-| `SQL_STATEMENT_TIMEOUT_MS` | Maximum SQL execution time. |
-| `SQL_LOCK_TIMEOUT_MS` | PostgreSQL lock timeout for sandbox queries. |
-| `SQL_IDLE_IN_TX_TIMEOUT_MS` | PostgreSQL idle transaction timeout. |
-| `SQL_MAX_ROWS` | Maximum result rows returned by sandbox queries. |
-| `MAX_RUNS_PER_QUESTION` | Maximum evaluation runs allowed for one problem. |
-| `NODE_ENV` | `development`, `qa`, or `production`. |
-| `JWT_SECRET` | Access-token signing secret; minimum 16 characters. |
-| `JWT_REFRESH_SECRET` | Refresh-token signing secret; minimum 16 characters. |
-| `ACCESS_TOKEN_TTL` | Access-token duration, for example `15m`. |
-| `REFRESH_TOKEN_TTL` | Refresh-token duration, for example `7d`. |
-| `REFRESH_COOKIE_NAME` | Name of the refresh-token cookie. |
-| `BCRYPT_ROUNDS` | Password hashing cost between 4 and 31. |
+| Variable                    | Description                                                                 |
+| --------------------------- | --------------------------------------------------------------------------- |
+| `PORT`                      | HTTP server port. Defaults to `8000`.                                       |
+| `DATABASE_URL`              | Privileged PostgreSQL connection used by Prisma and trusted operations.     |
+| `SANDBOX_DATABASE_URL`      | Optional least-privilege PostgreSQL connection for untrusted SQL execution. |
+| `REDIS_URL`                 | Redis connection URL.                                                       |
+| `CACHE_TTL_SECONDS`         | Cache lifetime in seconds.                                                  |
+| `SQL_STATEMENT_TIMEOUT_MS`  | Maximum SQL execution time.                                                 |
+| `SQL_LOCK_TIMEOUT_MS`       | PostgreSQL lock timeout for sandbox queries.                                |
+| `SQL_IDLE_IN_TX_TIMEOUT_MS` | PostgreSQL idle transaction timeout.                                        |
+| `SQL_MAX_ROWS`              | Maximum result rows returned by sandbox queries.                            |
+| `MAX_RUNS_PER_QUESTION`     | Maximum evaluation runs allowed for one problem.                            |
+| `NODE_ENV`                  | `development`, `qa`, or `production`.                                       |
+| `JWT_SECRET`                | Access-token signing secret; minimum 16 characters.                         |
+| `JWT_REFRESH_SECRET`        | Refresh-token signing secret; minimum 16 characters.                        |
+| `ACCESS_TOKEN_TTL`          | Access-token duration, for example `15m`.                                   |
+| `REFRESH_TOKEN_TTL`         | Refresh-token duration, for example `7d`.                                   |
+| `REFRESH_COOKIE_NAME`       | Name of the refresh-token cookie.                                           |
+| `BCRYPT_ROUNDS`             | Password hashing cost between 4 and 31.                                     |
 
 Never commit `.env` or real credentials.
 
@@ -358,6 +358,7 @@ POST /api/normalize
 POST /api/fingerprint
 POST /api/rules
 POST /api/evaluate
+POST /api/sql/session-questions/<sessionQuestionId>/evaluate-before-submit
 ```
 
 Example evaluation request:
@@ -425,7 +426,25 @@ Authorization: Bearer <accessToken>
 Use `deadlineAt` as the authoritative server deadline. The frontend clock is
 only for display.
 
-### 4. Submit a question
+### 4. Evaluate before submitting
+
+Run the candidate query to receive only the `question_attempt` preview. This
+also creates the pending `attempt` and its `attemptRun`; repeated evaluations
+create additional runs for the same pending attempt.
+
+```http
+POST http://localhost:8000/api/sql/session-questions/<sessionQuestionId>/evaluate-before-submit
+Authorization: ******
+Content-Type: application/json
+```
+
+```json
+{
+  "sql": "SELECT email FROM customers GROUP BY email HAVING COUNT(*) > 1;"
+}
+```
+
+### 5. Submit a question
 
 ```http
 POST http://localhost:8000/api/sql/session-questions/<sessionQuestionId>/submit
@@ -441,10 +460,13 @@ Content-Type: application/json
 }
 ```
 
-The server creates one `attempt` and one `attemptRun`. A unique database index
-prevents concurrent duplicate final submissions.
+The preview step creates the `attempt` and `attemptRun` when used. Final
+submission updates an existing pending attempt with the final query, status,
+and score, and records the final query as an `attemptRun`. If no preview was
+run, final submission creates the attempt and its final `attemptRun` itself.
+A unique database index prevents concurrent duplicate final submissions.
 
-### 5. Advance to the next question
+### 6. Advance to the next question
 
 After displaying the submission feedback:
 

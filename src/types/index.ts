@@ -207,10 +207,12 @@ export interface EvaluateSqlFollowupInput {
   answer: string;
 }
 
-// Combined debrief = SQL feedback + explanation evaluation
-export interface CombinedDebriefResponse extends DebriefResponse {
-  explanationEvaluation: ExplanationEvaluation;
-  overallNextStep: string;
+// Combined debrief returned after a final SQL submission.
+export interface CombinedDebriefResponse {
+  attemptId: string;
+  sessionQuestionId: string;
+  question_attempt?: QuestionAttempt;
+  feedback?: EvaluateResponse["feedback"];
 }
 
 export interface DebriefResponse {

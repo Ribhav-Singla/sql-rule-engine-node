@@ -1,12 +1,13 @@
-import { getMockedComparisonResult } from "./mock-comparison.js";
 import { Prisma } from "@prisma/client";
-import { generateSqlFeedback } from "../feedback/feedback-generator.js";
-import type { CombinedDebriefResponse } from "../../types/index.js";
+import type {
+  CombinedDebriefResponse,
+  EvaluateResponse,
+} from "../../types/index.js";
 import { db } from "../../db/index.js";
-import { randomUUID } from "crypto";
-import { evaluateSqlFollowup } from "../evaluator/sql-followup-evaluator.js";
+import { evaluateQuery } from "../evaluation/evaluation.js";
 import { normalizeSql } from "../normalization/query-normalizer.js";
 import { generateSha256Hash } from "../fingerprint/fingerprint.js";
+import { type SchemaName } from "../../types/index.js";
 
 export async function submitSessionQuestion(
   sessionQuestionId: string,
@@ -23,6 +24,20 @@ export async function submitSessionQuestion(
 }> {
   const sessionRecord = await db.sessionQuestion.findFirst({
     where: { id: sessionQuestionId, status: "active", session: { userId } },
+    select: {
+      status: true,
+      deadlineAt: true,
+      problem: {
+        select: {
+          id: true,
+          schema: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!sessionRecord) {
@@ -33,7 +48,6 @@ export async function submitSessionQuestion(
       statusCode: 404,
     };
   }
-
   const question = sessionRecord;
   if (
     question.status === "timed_out" ||
@@ -58,7 +72,7 @@ export async function submitSessionQuestion(
     where: { sessionQuestionId },
   });
 
-  if (existingAttempt) {
+  if (existingAttempt?.status === "completed") {
     return {
       success: false,
       error: "Final submission already completed for this question.",
@@ -66,47 +80,73 @@ export async function submitSessionQuestion(
       statusCode: 409,
     };
   }
-
   try {
-    // 4. Get comparison result (mocked for now, replaceable later)
-    const comparisonResult = getMockedComparisonResult(finalQuery);
-
-    // 5. Generate Feedback
-    const feedbackData = generateSqlFeedback({
+    const evaluationResult: EvaluateResponse = await evaluateQuery(
       finalQuery,
-      comparisonResult,
-      ruleSignals: comparisonResult.detectedRules,
-      explanationText,
-      edgeCaseText,
-    });
+      question.problem.schema.name as SchemaName,
+      question.problem.id,
+    );
+    if (evaluationResult.error) {
+      return {
+        success: false,
+        error: evaluationResult.error,
+        errorCode: "QUERY_EVALUATION_FAILED",
+        statusCode: 400,
+      };
+    }
+    const questionAttempt = evaluationResult.question_attempt;
 
     // 6. Save to DB
-    const attemptId = randomUUID();
     const normalizedFinalQuery =
-      normalizeSql(finalQuery).normalized_sql ?? finalQuery;
-    await db.$transaction(async (tx) => {
-      await tx.attempt.create({
+      questionAttempt?.normalized_sql ??
+      normalizeSql(finalQuery).normalized_sql ??
+      finalQuery;
+    const submittedAttemptId = await db.$transaction(async (tx) => {
+      let attempt = await tx.attempt.findFirst({
+        where: { sessionQuestionId },
+        select: { id: true, status: true },
+      });
+      if (attempt?.status === "completed") {
+        throw new Prisma.PrismaClientKnownRequestError(
+          "Final submission already completed for this question.",
+          { code: "P2002", clientVersion: Prisma.prismaVersion.client },
+        );
+      }
+
+      if (!attempt) {
+        attempt = await tx.attempt.create({
+          data: {
+            sessionQuestionId,
+            userId,
+            status: "pending",
+          },
+          select: { id: true, status: true },
+        });
+      }
+
+      await tx.attempt.update({
+        where: { id: attempt.id },
         data: {
-          id: attemptId,
-          sessionQuestionId,
-          userId,
           finalQuery,
           status: "completed",
-          score: feedbackData.score,
+          score: evaluationResult.feedback?.score ?? 0,
         },
       });
 
       await tx.attemptRun.create({
         data: {
-          attemptId,
+          attemptId: attempt.id,
           sessionQuestionId,
           queryText: normalizedFinalQuery,
           queryHash: generateSha256Hash(normalizedFinalQuery),
-          output: feedbackData as unknown as Prisma.InputJsonValue,
+          output: (questionAttempt?.preview_rows ??
+            []) as Prisma.InputJsonValue,
           errorText: null,
           runtimeMs: 0,
         },
       });
+
+      return attempt.id;
     });
 
     await db.sessionQuestion.update({
@@ -114,21 +154,12 @@ export async function submitSessionQuestion(
       data: { status: "completed", usedAt: new Date() },
     });
 
-    const explanationEvaluation = await evaluateSqlFollowup({
-      questionId: question.problemId,
-      attemptId: attemptId,
-      followupQuestion: "Please explain your SQL query and logic.",
-      answer: explanationText,
-    });
-
     // 8. Return frontend-ready Combined Debrief JSON
     const debrief: CombinedDebriefResponse = {
-      success: true,
-      attemptId: attemptId,
+      attemptId: submittedAttemptId,
       sessionQuestionId,
-      ...feedbackData,
-      explanationEvaluation,
-      overallNextStep: explanationEvaluation.nextStep || feedbackData.nextStep,
+      question_attempt: questionAttempt,
+      feedback: evaluationResult.feedback,
     };
 
     return { success: true, data: debrief };
@@ -144,6 +175,7 @@ export async function submitSessionQuestion(
         statusCode: 409,
       };
     }
+
     console.error("Feedback generation/DB save failed:", error);
     return {
       success: false,
@@ -152,4 +184,103 @@ export async function submitSessionQuestion(
       statusCode: 500,
     };
   }
+}
+
+export async function evaluateBeforeSubmit(
+  sessionQuestionId: string,
+  userId: string,
+  sql: string,
+): Promise<{
+  success: boolean;
+  data?: EvaluateResponse["question_attempt"];
+  error?: string;
+  errorCode?: string;
+  statusCode?: number;
+}> {
+  const sessionRecord = await db.sessionQuestion.findFirst({
+    where: { id: sessionQuestionId, status: "active", session: { userId } },
+    select: {
+      deadlineAt: true,
+      problem: {
+        select: {
+          id: true,
+          schema: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  if (!sessionRecord) {
+    return {
+      success: false,
+      error: "Interview question not found.",
+      errorCode: "QUESTION_NOT_FOUND",
+      statusCode: 404,
+    };
+  }
+
+  if (sessionRecord.deadlineAt && sessionRecord.deadlineAt <= new Date()) {
+    await db.sessionQuestion.update({
+      where: { id: sessionQuestionId },
+      data: { status: "timed_out" },
+    });
+    return {
+      success: false,
+      error: "The time limit for this question has expired.",
+      errorCode: "QUESTION_TIMED_OUT",
+      statusCode: 409,
+    };
+  }
+
+  const evaluationResult = await evaluateQuery(
+    sql,
+    sessionRecord.problem.schema.name as SchemaName,
+    sessionRecord.problem.id,
+  );
+  if (evaluationResult.error || !evaluationResult.question_attempt) {
+    return {
+      success: false,
+      error: evaluationResult.error ?? "Query evaluation failed.",
+      errorCode: "QUERY_EVALUATION_FAILED",
+      statusCode: 400,
+    };
+  }
+  const questionAttempt = evaluationResult.question_attempt;
+
+  const normalizedSql =
+    questionAttempt.normalized_sql ?? normalizeSql(sql).normalized_sql ?? sql;
+
+  await db.$transaction(async (tx) => {
+    const existing = await tx.attempt.findFirst({
+      where: { sessionQuestionId },
+      select: { id: true, status: true },
+    });
+    const attempt =
+      existing ??
+      (await tx.attempt.create({
+        data: { sessionQuestionId, userId, status: "pending" },
+        select: { id: true, status: true },
+      }));
+
+    if (attempt.status === "completed") {
+      throw new Prisma.PrismaClientKnownRequestError(
+        "Final submission already completed for this question.",
+        { code: "P2002", clientVersion: Prisma.prismaVersion.client },
+      );
+    }
+
+    await tx.attemptRun.create({
+      data: {
+        attemptId: attempt.id,
+        sessionQuestionId,
+        queryText: normalizedSql,
+        queryHash: generateSha256Hash(normalizedSql),
+        output: (questionAttempt.preview_rows ?? []) as Prisma.InputJsonValue,
+        errorText: null,
+        runtimeMs: 0,
+      },
+    });
+  });
+
+  return { success: true, data: questionAttempt };
 }

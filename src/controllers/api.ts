@@ -1,11 +1,24 @@
 import type { Request, Response } from "express";
+import { Prisma } from "@prisma/client";
 import { normalizeSql } from "../services/normalization/query-normalizer.js";
 import { generateFingerprint } from "../services/fingerprint/fingerprint.js";
 import { runRules } from "../services/rules/rule-engine.js";
 import { evaluateQuery } from "../services/evaluation/evaluation.js";
 import { ApiError, ApiSuccess } from "../utils/api_response.js";
-import { evaluateSchema, fingerprintSchema, normalizeSchema, problemIdParamSchema, rulesSchema, validateSchema, finalSubmitSchema, sessionQuestionIdParamSchema, evaluateFollowupSchema } from "./../zod/index.js";
-import { submitSessionQuestion } from "../services/submission/submit.js";
+import {
+  evaluateSchema,
+  fingerprintSchema,
+  normalizeSchema,
+  rulesSchema,
+  validateSchema,
+  finalSubmitSchema,
+  sessionQuestionIdParamSchema,
+  evaluateFollowupSchema,
+} from "./../zod/index.js";
+import {
+  evaluateBeforeSubmit,
+  submitSessionQuestion,
+} from "../services/submission/submit.js";
 import { evaluateSqlFollowup } from "../services/evaluator/sql-followup-evaluator.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.js";
 import { AppError } from "../utils/app_error.js";
@@ -38,7 +51,10 @@ export const normalizeController = (req: Request, res: Response): void => {
 };
 
 // Fingerprint Controller
-export const generateFingerprintController = (req: Request, res: Response): void => {
+export const generateFingerprintController = (
+  req: Request,
+  res: Response,
+): void => {
   try {
     const validation = validateSchema(fingerprintSchema, req.body);
 
@@ -55,9 +71,16 @@ export const generateFingerprintController = (req: Request, res: Response): void
       return;
     }
 
-    const problemId = typeof problem_id === "string" && problem_id.trim() ? problem_id : "global";
+    const problemId =
+      typeof problem_id === "string" && problem_id.trim()
+        ? problem_id
+        : "global";
 
-    const fingerprint = generateFingerprint(problemId, schema_name, parsed.normalized_sql);
+    const fingerprint = generateFingerprint(
+      problemId,
+      schema_name,
+      parsed.normalized_sql,
+    );
 
     ApiSuccess(res, "Fingerprint generated successfully", 200, {
       fingerprint,
@@ -99,7 +122,10 @@ export const runRulesController = (req: Request, res: Response): void => {
 };
 
 // Evaluate Controller
-export const evaluateQueryController = async (req: Request, res: Response): Promise<void> => {
+export const evaluateQueryController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const validation = validateSchema(evaluateSchema, req.body);
 
@@ -129,7 +155,10 @@ export const evaluateQueryController = async (req: Request, res: Response): Prom
 };
 
 // Final Submit Controller
-export const finalSubmitController = async (req: Request, res: Response): Promise<void> => {
+export const finalSubmitController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     // 1. Authenticated user — guaranteed by authMiddleware on this route.
     const userId = (req as AuthenticatedRequest).user?.userId;
@@ -163,7 +192,7 @@ export const finalSubmitController = async (req: Request, res: Response): Promis
       userId,
       finalQuery,
       explanationText,
-      edgeCaseText
+      edgeCaseText,
     );
 
     if (!result.success) {
@@ -172,7 +201,7 @@ export const finalSubmitController = async (req: Request, res: Response): Promis
         result.error || "Submission failed",
         result.statusCode || 500,
         {},
-        result.errorCode
+        result.errorCode,
       );
       return;
     }
@@ -185,8 +214,73 @@ export const finalSubmitController = async (req: Request, res: Response): Promis
   }
 };
 
+export const evaluateQueryBeforeSubmitController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const userId = (req as AuthenticatedRequest).user?.userId;
+    if (!userId) {
+      ApiError(res, "User is not authenticated", 401, {}, "UNAUTHENTICATED");
+      return;
+    }
+
+    const paramValidation = validateSchema(sessionQuestionIdParamSchema, {
+      sessionQuestionId: req.params.sessionQuestionId,
+    });
+    const bodyValidation = validateSchema(normalizeSchema, req.body);
+    if (!paramValidation.success) {
+      ApiError(res, paramValidation.error, 400);
+      return;
+    }
+    if (!bodyValidation.success) {
+      ApiError(res, bodyValidation.error, 400);
+      return;
+    }
+
+    const result = await evaluateBeforeSubmit(
+      paramValidation.data.sessionQuestionId,
+      userId,
+      bodyValidation.data.sql,
+    );
+    if (!result.success) {
+      ApiError(
+        res,
+        result.error ?? "Query evaluation failed.",
+        result.statusCode ?? 500,
+        {},
+        result.errorCode,
+      );
+      return;
+    }
+
+    ApiSuccess(res, "Query evaluated successfully", 200, {
+      question_attempt: result.data,
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      ApiError(
+        res,
+        "Final submission already completed for this question.",
+        409,
+        {},
+        "SUBMIT_LIMIT_REACHED",
+      );
+      return;
+    }
+    console.error("Evaluate before submit error:", error);
+    ApiError(res, "Internal Server Error", 500);
+  }
+};
+
 // Standalone Explanation Evaluation Controller (Assignment 2)
-export const evaluateFollowupController = async (req: Request, res: Response): Promise<void> => {
+export const evaluateFollowupController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const attemptId = req.params.attemptId;
     if (!attemptId) {
@@ -201,13 +295,13 @@ export const evaluateFollowupController = async (req: Request, res: Response): P
     }
 
     const { questionId, followupQuestion, answer } = validation.data;
-    
+
     // Call the evaluator service independently
     const evaluation = await evaluateSqlFollowup({
       questionId,
       attemptId: attemptId as string,
       followupQuestion,
-      answer
+      answer,
     });
 
     ApiSuccess(res, "Explanation evaluated successfully", 200, evaluation);

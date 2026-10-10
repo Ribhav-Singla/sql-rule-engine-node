@@ -1,7 +1,8 @@
 import { RuleResult } from "../../types";
+import { getStatementAst } from "./rule-utils.js";
 
 export function ruleRightJoin(ast: any): RuleResult {
-  const from = ast.from || [];
+  const from = getStatementAst(ast)?.from ?? [];
   const hasRightJoin = from.some((f: any) => f.join?.toUpperCase() === "RIGHT JOIN");
   return {
     triggered: hasRightJoin,

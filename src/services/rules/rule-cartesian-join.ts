@@ -1,7 +1,8 @@
 import { RuleResult } from "../../types";
+import { getStatementAst } from "./rule-utils.js";
 
 export function ruleCartesianJoin(ast: any): RuleResult {
-  const from = ast.from || [];
+  const from = getStatementAst(ast)?.from ?? [];
   const hasMultipleTables = from.length > 1;
   const hasJoin = from.some((f: any) => f.join);
   const triggered = hasMultipleTables && !hasJoin;

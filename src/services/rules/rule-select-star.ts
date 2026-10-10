@@ -1,7 +1,9 @@
 import { RuleResult } from "../../types";
+import { getStatementAst } from "./rule-utils.js";
 
 export function ruleSelectStar(ast: any): RuleResult {
-  const columns = Array.isArray(ast?.columns) ? ast.columns : [];
+  const statement = getStatementAst(ast);
+  const columns = Array.isArray(statement?.columns) ? statement.columns : [];
   const hasStar = columns.some(
     (column: any) => column?.expr?.type === "star" || column?.expr?.column === "*" || column === "*",
   );
